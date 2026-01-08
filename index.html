@@ -68,7 +68,9 @@
     position:absolute;transform:translate(-50%,-50%);
     padding:4px 8px;border-radius:999px;background:#f8f8f8;
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
+    z-index:1;
   }
+
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
 
   .player-tag.picked{
@@ -115,7 +117,7 @@
     top:50%;
     transform:translate(-50%,-50%);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
-    z-index:5;
+    z-index:1;
   }
 
 /* ▼このブロック内の overflow を変更 */
@@ -1820,7 +1822,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
-  const dist = 54;
+  const dist = 70;
   wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
 
   const card = document.createElement('div');
