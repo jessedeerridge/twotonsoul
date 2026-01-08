@@ -114,20 +114,23 @@
     left:50%;
     top:50%;
     transform:translate(-50%,-50%);
-    pointer-events:none; /* デフォは無効（ホストのクリック可能箇所だけ有効化） */
+    pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:5;
   }
+
 /* ▼このブロック内の overflow を変更 */
-.mini-order-card{
-  width:74px;
-  height:96px;
+  .mini-order-card{
+    width:86px;
+    height:104px;
   border-radius:14px;
   border:1px solid rgba(0,0,0,.12);
   background:linear-gradient(135deg,#ffffff,#f2f5ff);
   box-shadow:0 10px 22px rgba(0,0,0,.14);
-  position:relative;
-  overflow:visible; /* ★ここ：hidden → visible */
-}
+    position:relative;
+    overflow:visible; /* ★ここ：hidden → visible */
+    pointer-events:auto;
+  }
+
 
 
 
@@ -150,6 +153,7 @@
     gap:6px;
     align-items:flex-end;
     justify-content:center;
+    pointer-events:auto;
   }
   .mini-order-slot{
     width:24px;
@@ -159,6 +163,7 @@
     background:rgba(255,255,255,.55);
     border:none;
     overflow:visible;
+    pointer-events:auto;
   }
   .mini-order-slot .slot-border{
     position:absolute;
@@ -198,7 +203,9 @@
     overflow:hidden;
     text-overflow:ellipsis;
     user-select:none;
+    pointer-events:auto;
   }
+
   .mini-order-chip.hidden-chip{
     background:#2563eb;     /* 青塗り */
     border-color:#1d4ed8;
@@ -208,7 +215,7 @@
   .mini-order-chip.hidden-chip::after{
     content:'';
   }
-  .mini-order-chip.open-btn{
+ .mini-order-chip.open-btn{
     pointer-events:auto;
     cursor:pointer;
     color:#fff;
@@ -217,6 +224,10 @@
     box-shadow:0 8px 18px rgba(0,0,0,.22);
   }
   .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
+
+  .mini-order-card.clickable{
+    cursor:pointer;
+  }
 
   .mini-open-badge{
     position:absolute;
@@ -1818,28 +1829,26 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
   const col = document.createElement('div');
   col.className = 'mini-order-col';
 
-  // ★ホスト本人だけ「一番上」を公開ボタンにする
-  const hostCanOpenFromTop = (isHost && isMe && revealIndex < 5);
-
+  // ★ホスト本人は「未公開の全カード」を公開ボタンにする（公開は上から順番）
+  const hostCanOpen = (isHost && isMe && revealIndex < 5);
   for (let i=0;i<5;i++){
     const slot = document.createElement('div');
     slot.className = 'mini-order-slot';
     injectMiniSlotBorder(slot);
 
-    const isRevealed = (i < revealIndex) || isMe; // 自分は常に見える
+    const isRevealed = (i < revealIndex);
 
     const chip = document.createElement('div');
     chip.className = 'mini-order-chip';
 
-    if (isRevealed){
-      chip.textContent = String(ordered[i] ?? '');
-    } else {
+    chip.textContent = String(ordered[i] ?? '');
+
+    if (!isMe && !isRevealed){
       chip.classList.add('hidden-chip');
-      chip.textContent = '';
     }
 
-    // ★ここが変更点：ホスト本人の「一番上」だけがボタン
-    if (hostCanOpenFromTop && i === 0){
+    // ★ホスト本人の未公開段は全部ボタン（クリックで次の段を公開）
+    if (hostCanOpen && i >= revealIndex){
       chip.classList.add('open-btn');
 
       const badge = document.createElement('div');
@@ -1860,8 +1869,17 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   card.appendChild(col);
   wrap.appendChild(card);
+  if (hostCanOpen){
+    card.classList.add('clickable');
+    card.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await hostRevealNext();
+    }, { passive:false });
+  }
   return wrap;
 }
+
 
 function injectMiniSlotBorder(slotEl){
   if (slotEl.querySelector('.slot-border')) return;
