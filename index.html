@@ -1,5 +1,6 @@
 
-<!DOCTYPE html> 
+
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -103,6 +104,137 @@
     font-size:10px;display:flex;align-items:center;justify-content:center;
     transform-origin:bottom center;
     box-shadow:0 2px 6px rgba(0,0,0,.15);
+  }
+
+  /* =========================================================
+     ★追加：ミニ順カード（次フェーズ：円の外側に出す）
+     ========================================================= */
+  .mini-order-wrap{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    pointer-events:none; /* デフォは無効（ホストのクリック可能箇所だけ有効化） */
+    z-index:5;
+  }
+/* ▼このブロック内の overflow を変更 */
+.mini-order-card{
+  width:74px;
+  height:96px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.12);
+  background:linear-gradient(135deg,#ffffff,#f2f5ff);
+  box-shadow:0 10px 22px rgba(0,0,0,.14);
+  position:relative;
+  overflow:visible; /* ★ここ：hidden → visible */
+}
+
+
+
+  .mini-order-card::after{
+    content:'順';
+    position:absolute;
+    right:8px; top:6px;
+    font-weight:900;
+    font-size:12px;
+    opacity:.55;
+  }
+  .mini-order-col{
+    position:absolute;
+    right:8px;
+    top:12px;
+    bottom:12px;
+    width:48px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .mini-order-slot{
+    width:24px;
+    height:14px;
+    border-radius:8px;
+    position:relative;
+    background:rgba(255,255,255,.55);
+    border:none;
+    overflow:visible;
+  }
+  .mini-order-slot .slot-border{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+  }
+  .mini-order-slot .slot-border .border-path{
+    stroke: rgba(17,17,17,.22);
+    stroke-width: 1px;
+    stroke-dasharray: 4 4;
+    fill:none;
+    vector-effect: non-scaling-stroke;
+    stroke-linejoin: round;
+    stroke-linecap: butt;
+  }
+  .mini-order-chip{
+    position:absolute;
+    right:-24px;
+    top:50%;
+    transform:translateY(-50%);
+    width:48px;
+    height:14px;
+    border-radius:8px;
+    border:1px solid rgba(0,0,0,.18);
+    background:#fff;
+    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:900;
+    font-size:9px;
+    padding:0 3px;
+    box-sizing:border-box;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    user-select:none;
+  }
+  .mini-order-chip.hidden-chip{
+    background:#2563eb;     /* 青塗り */
+    border-color:#1d4ed8;
+    color:#2563eb;          /* 文字は見えないように（実質無地） */
+    box-shadow:0 6px 14px rgba(37,99,235,.25);
+  }
+  .mini-order-chip.hidden-chip::after{
+    content:'';
+  }
+  .mini-order-chip.open-btn{
+    pointer-events:auto;
+    cursor:pointer;
+    color:#fff;
+    background:#111;
+    border-color:#111;
+    box-shadow:0 8px 18px rgba(0,0,0,.22);
+  }
+  .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
+
+  .mini-open-badge{
+    position:absolute;
+    left:-6px;
+    top:-6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#111;
+    color:#fff;
+    font-size:10px;
+    font-weight:900;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid rgba(255,255,255,.65);
+    box-shadow:0 6px 14px rgba(0,0,0,.18);
+    pointer-events:none;
   }
 
  .my-hand-wrapper{
@@ -628,7 +760,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import {
+  getDatabase, ref, set, get, update, onValue, remove, runTransaction
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAMeKfMoHt9qO2VuUBpkrKuei7yGBbEi8",
@@ -662,8 +796,13 @@ const state = {
   hands: {},
   room: {},
   draft: null,
+
+  // ★追加：順カード確定内容（全員分）
+  orders: {},
+
   _lastIncomingToken: null,
   _lastPassToken: null,
+
   order: {
     decidedKey: null,
     decidedObjs: [],
@@ -672,6 +811,10 @@ const state = {
     open: false,
     _autoOpenedOnce: false,
     dragging: null,
+
+    // ★追加：自分の順カード「確定」(DBに書いたらロック)
+    submitted: false,
+    submittedOrder: null,
   }
 };
 
@@ -841,6 +984,112 @@ function updateHostUI(){
   helpBtn.classList.add('visible');
 }
 
+/* =========================
+   ★フェーズ補助
+   ========================= */
+function getRoomPhase(){
+  return state.room?.phase || null; // "draft" | "order" | "reveal" | null
+}
+function getRevealIndex(){
+  const v = state.room?.revealIndex;
+  return Number.isInteger(v) ? v : 0; // 0..5
+}
+function canEditOrder(){
+  return (getRoomPhase() === 'order') && !state.order.submitted;
+}
+
+/* =========================
+   ★順カード確定（自分）をDBへ
+   ========================= */
+function cardTextById(cardId){
+  const o = state.order.decidedObjs.find(x => x.id === cardId);
+  return o ? o.text : '';
+}
+function computeLocalOrderedTexts(){
+  if (!Array.isArray(state.order.slots) || state.order.slots.length !== 5) return null;
+  if (!state.order.slots.every(v => v)) return null;
+  const out = state.order.slots.map(cid => cardTextById(cid)).map(t => (t ?? '').trim());
+  if (out.some(t => !t)) return null;
+  return out;
+}
+async function submitMyOrderIfReady(){
+  if (!state.roomCode) return;
+  if (!canEditOrder()) return;
+  if (!state.order.completed) return;
+  if (state.order.submitted) return;
+
+  const ordered = computeLocalOrderedTexts();
+  if (!ordered) return;
+
+  const myId = state.userId;
+  await set(ref(db, `rooms/${state.roomCode}/orders/${myId}`), {
+    ordered,
+    submittedAt: Date.now(),
+    name: state.userName || ''
+  });
+
+  state.order.submitted = true;
+  state.order.submittedOrder = ordered.slice();
+}
+
+/* =========================
+   ★ホスト：全員の確定を検知して次フェーズへ
+   - 全員が orders/{pid}.ordered(5枚) を持っていたら phase="reveal"
+   ========================= */
+function getSeatedPlayerIds(){ return latestPlayers.map(p => p.id); }
+
+async function hostMaybeEnsureOrderPhase(){
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+  // ドラフトが終わっているのに phase が未設定なら "order" にする
+  if (!state.draft || state.draft.phase !== 'done') return;
+  const phase = getRoomPhase();
+  if (phase === 'order' || phase === 'reveal') return;
+
+  await update(ref(db, `rooms/${state.roomCode}`), {
+    phase: 'order',
+    revealIndex: 0
+  });
+}
+
+function hasSubmittedOrderFor(pid){
+  const o = state.orders?.[pid];
+  return Array.isArray(o?.ordered) && o.ordered.length === 5;
+}
+
+async function hostMaybeAdvanceToReveal(){
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+  if (getRoomPhase() !== 'order') return;
+
+  const ids = getSeatedPlayerIds();
+  if (!ids.length) return;
+
+  const allDone = ids.every(pid => hasSubmittedOrderFor(pid));
+  if (!allDone) return;
+
+  await update(ref(db, `rooms/${state.roomCode}`), {
+    phase: 'reveal',
+    revealIndex: 0,
+    revealStartedAt: Date.now()
+  });
+}
+
+/* =========================
+   ★ホスト：次の段階公開（全員の同じ段）
+   ========================= */
+async function hostRevealNext(){
+  if (!state.isHost) return;
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), (cur) => {
+    if (!cur) return cur;
+    if (cur.phase !== 'reveal') return cur;
+    const idx = Number.isInteger(cur.revealIndex) ? cur.revealIndex : 0;
+    if (idx >= 5) return cur;
+    return { ...cur, revealIndex: idx + 1, revealUpdatedAt: Date.now() };
+  });
+}
+
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
@@ -848,6 +1097,14 @@ function subscribeRoom(){
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     syncSeatUI();
+
+    // ★ホスト：ドラフト完了後に order フェーズを保証
+    hostMaybeEnsureOrderPhase();
+    // ★ホスト：全員確定なら revealへ
+    hostMaybeAdvanceToReveal();
+
+    // UI更新（ミニ順カード表示など）
+    renderHands();
   });
 }
 function subscribeHostState(){
@@ -858,6 +1115,8 @@ function subscribeHostState(){
     updateHostUI();
     syncSeatUI();
     hostMaybeAdvanceDraft();
+    hostMaybeEnsureOrderPhase();
+    hostMaybeAdvanceToReveal();
   });
 }
 function subscribeHands(){
@@ -866,6 +1125,8 @@ function subscribeHands(){
     state.hands = snap.val() || {};
     renderHands();
     hostMaybeAdvanceDraft();
+    hostMaybeEnsureOrderPhase();
+    hostMaybeAdvanceToReveal();
   });
 }
 function subscribeDraft(){
@@ -874,10 +1135,27 @@ function subscribeDraft(){
     state.draft = snap.val() || null;
     renderHands();
     hostMaybeAdvanceDraft();
+    hostMaybeEnsureOrderPhase();
+    hostMaybeAdvanceToReveal();
+  });
+}
+function subscribeOrders(){
+  const ordersRef = ref(db, `rooms/${state.roomCode}/orders`);
+  onValue(ordersRef, snap => {
+    state.orders = snap.val() || {};
+
+    // ★自分が既に確定済みならローカルもロック
+    const my = state.orders?.[state.userId];
+    if (Array.isArray(my?.ordered) && my.ordered.length === 5){
+      state.order.submitted = true;
+      state.order.submittedOrder = my.ordered.slice();
+    }
+
+    renderHands();
+    hostMaybeAdvanceToReveal();
   });
 }
 
-function getSeatedPlayerIds(){ return latestPlayers.map(p => p.id); }
 function computeAllPicked(){
   if (!state.draft || state.draft.phase !== 'draft') return false;
   if (state.draft.status !== 'picking') return false;
@@ -920,6 +1198,12 @@ function ensureOrderStateForMyHand(h){
   const decided = Array.isArray(h?.decided) ? h.decided : [];
   const draftDone = !!state.draft && state.draft.phase === 'done';
 
+  // revealフェーズに入ったら「並び替えUI」は閉じてロック（表示は別途）
+  if (getRoomPhase() === 'reveal'){
+    state.order.open = false;
+    hideOrderBig();
+  }
+
   if (!draftDone || decided.length < 5){
     state.order.decidedKey = null;
     state.order.decidedObjs = [];
@@ -927,6 +1211,8 @@ function ensureOrderStateForMyHand(h){
     state.order.completed = false;
     state.order.open = false;
     state.order._autoOpenedOnce = false;
+    state.order.submitted = false;
+    state.order.submittedOrder = null;
     hideOrderBig();
     return;
   }
@@ -938,23 +1224,39 @@ function ensureOrderStateForMyHand(h){
     const validIds = new Set(state.order.decidedObjs.map(o=>o.id));
     state.order.slots = state.order.slots.map(cid => validIds.has(cid) ? cid : null);
     state.order.completed = state.order.slots.every(v => v);
-    if (!state.order.completed && !state.order._autoOpenedOnce){
-      state.order._autoOpenedOnce = true;
-      showOrderBig();
+
+    if (canEditOrder()){
+      if (!state.order.completed && !state.order._autoOpenedOnce){
+        state.order._autoOpenedOnce = true;
+        showOrderBig();
+      }
+      if (!state.order.completed){
+        showOrderBig();
+      }
+    } else {
+      hideOrderBig();
     }
   }
 
-  if (!state.order.completed){
-    showOrderBig();
+  if (canEditOrder()){
+    if (!state.order.completed){
+      showOrderBig();
+    } else {
+      if (state.order.open) showOrderBig();
+      else hideOrderBig();
+    }
   } else {
-    if (state.order.open) showOrderBig();
-    else hideOrderBig();
+    hideOrderBig();
   }
 }
 
-function cardTextById(cardId){
-  const o = state.order.decidedObjs.find(x => x.id === cardId);
-  return o ? o.text : '';
+function safeParseDragPayload(s){
+  try{
+    const o = JSON.parse(s);
+    return o && typeof o === 'object' ? o : null;
+  } catch {
+    return null;
+  }
 }
 
 /* =========================
@@ -971,6 +1273,7 @@ function isInsideOrderOrHand(target){
 }
 
 function showOrderBig(){
+  if (!canEditOrder()) return; // ★orderフェーズ & 未確定のみ編集OK
   state.order.open = true;
 
   /* ★②：大を出す前に小の残骸が場に残っていたら消す（保険） */
@@ -986,9 +1289,8 @@ function hideOrderBig(){
   cleanupFloatingRole();
 }
 function toggleOrderBig(){
-  if (!state.order.completed){
-    return;
-  }
+  if (!state.order.completed) return;
+  if (!canEditOrder()) return;
   state.order.open = !state.order.open;
   if (state.order.open) showOrderBig();
   else hideOrderBig();
@@ -1006,11 +1308,13 @@ function renderOrderBigSlots(){
     injectSlotBorder(slot);
 
     slot.addEventListener('dragover', (e) => {
+      if (!canEditOrder()) return;
       e.preventDefault();
       slot.classList.add('over');
     });
     slot.addEventListener('dragleave', () => slot.classList.remove('over'));
     slot.addEventListener('drop', (e) => {
+      if (!canEditOrder()) return;
       e.preventDefault();
       slot.classList.remove('over');
       const payload = safeParseDragPayload(e.dataTransfer?.getData('text/plain') || '');
@@ -1025,20 +1329,15 @@ function renderOrderBigSlots(){
       chip.className = 'order-in-slot';
       chip.textContent = cardTextById(cid);
       chip.draggable = false;
-      setupPointerDrag(chip, { cardId: cid, fromSlotIdx: i });
-
+      if (canEditOrder()){
+        setupPointerDrag(chip, { cardId: cid, fromSlotIdx: i });
+      } else {
+        chip.style.cursor = 'default';
+      }
       slot.appendChild(chip);
     }
 
     orderSlotsBig.appendChild(slot);
-  }
-}
-function safeParseDragPayload(s){
-  try{
-    const o = JSON.parse(s);
-    return o && typeof o === 'object' ? o : null;
-  } catch {
-    return null;
   }
 }
 
@@ -1055,8 +1354,10 @@ function setOrderOpen(isOpen){
 }
 
 function setupPointerDrag(el, { cardId, fromSlotIdx }){
+  if (!canEditOrder()) return;
   el.classList.add('order-pointer-draggable');
   el.addEventListener('pointerdown', (e) => {
+    if (!canEditOrder()) return;
     if (e.button !== 0 && e.pointerType !== 'touch') return;
     e.preventDefault();
     e.stopPropagation();
@@ -1065,6 +1366,7 @@ function setupPointerDrag(el, { cardId, fromSlotIdx }){
 }
 
 function startPointerDrag(e, { cardId, fromSlotIdx, sourceEl }){
+  if (!canEditOrder()) return;
   if (state.order.dragging) return;
   const rect = sourceEl.getBoundingClientRect();
   const ghost = sourceEl.cloneNode(true);
@@ -1140,8 +1442,13 @@ function onPointerDragEnd(e){
 
 /* =========================
    ★④ 仕様変更：スロット上書き時は「自動で空いている場所に移動」をやめる
+   + ★追加：完成したら自動でDBへ確定（次フェーズ移行用）
    ========================= */
 function placeCardIntoSlot(cardId, toIdx, fromSlotIdx){
+  if (!canEditOrder()) return;
+
+  const wasOpen = state.order.open;
+  const wasCompleted = state.order.completed;
   const existingIdx = state.order.slots.findIndex(x => x === cardId);
   const originIdx = Number.isInteger(fromSlotIdx) ? fromSlotIdx : (existingIdx >= 0 ? existingIdx : null);
   if (originIdx === toIdx) return;
@@ -1153,25 +1460,31 @@ function placeCardIntoSlot(cardId, toIdx, fromSlotIdx){
     state.order.slots[originIdx] = targetCard;
   } else {
     state.order.slots[toIdx] = cardId;
-    if (targetCard){
-      // 上書きされたカードはスロットから外れるだけ（decided側に戻る）
-    }
+    // 上書きされたカードはスロットから外れるだけ（decided側に戻る）
   }
 
   const done = state.order.slots.every(v => v);
   state.order.completed = done;
 
-  if (done){
+  if (done && !wasCompleted){
     state.order.open = false;
     hideOrderBig();
-  } else {
+  } else if (wasOpen || !done){
     showOrderBig();
+  } else {
+    hideOrderBig();
   }
 
   renderMyHand();
+
+  // ★完成したら即「確定」してDBへ（全員の完了判定に使う）
+  if (done){
+    submitMyOrderIfReady();
+  }
 }
 
 function removeCardFromSlots(cardId){
+  if (!canEditOrder()) return;
   const idx = state.order.slots.findIndex(v => v === cardId);
   if (idx >= 0){
     state.order.slots[idx] = null;
@@ -1180,16 +1493,6 @@ function removeCardFromSlots(cardId){
     renderMyHand();
   }
 }
-
-/* =========================
-   ★⑤：順カード大のクリックで閉じる処理
-   ========================= */
-orderBigCard.addEventListener('click', (e) => {
-  const slot = e.target.closest?.('.order-slot');
-  const chip = e.target.closest?.('.order-in-slot');
-  if (slot || chip) return;
-  toggleOrderBig();
-});
 
 /* ★⑤：外側クリックで閉じる（順カード＆手札以外） */
 document.addEventListener('pointerdown', (e) => {
@@ -1204,6 +1507,56 @@ document.addEventListener('pointerdown', (e) => {
   }
 }, { capture:true });
 
+/* =========================
+   ★小さい順カードを「テキスト配列」から生成（確定済み表示にも使う）
+   ========================= */
+function buildOrderSmallBlockFromTexts(texts, { clickable }){
+  const orderSmallBlock = document.createElement('div');
+  orderSmallBlock.className = 'hand-block order-stack';
+
+  const small = document.createElement('div');
+  small.className = 'order-card-small';
+  small.title = clickable ? 'クリックで拡大（並び替え）' : '確定済み';
+
+  const col = document.createElement('div');
+  col.className = 'order-slot-col small';
+
+  for(let i=0;i<5;i++){
+    const slot = document.createElement('div');
+    slot.className = 'order-slot small';
+    injectSlotBorder(slot);
+
+    const t = texts?.[i];
+    if (t != null){
+      const chip = document.createElement('div');
+      chip.className = 'order-in-slot small';
+      chip.textContent = String(t);
+      slot.appendChild(chip);
+    }
+    col.appendChild(slot);
+  }
+  small.appendChild(col);
+
+  if (clickable){
+    small.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showOrderBig();
+      renderMyHand();
+    });
+  } else {
+    small.style.cursor = 'default';
+  }
+
+  // 左に正体カードを重ねる（従来の見た目維持）
+  const roleClone = document.createElement('div');
+  roleClone.className = 'role-card-big overlap-left';
+  roleClone.textContent = (state.hands?.[state.userId]?.role) ? state.hands[state.userId].role : '（役職なし）';
+  orderSmallBlock.appendChild(roleClone);
+  orderSmallBlock.appendChild(small);
+
+  return orderSmallBlock;
+}
+
 function renderMyHand(){
   cleanupFloatingRole();
 
@@ -1213,6 +1566,13 @@ function renderMyHand(){
   if (!h){
     hideOrderBig();
     return;
+  }
+
+  // ★自分の order 確定状況（DB優先）
+  const myOrderFromDb = state.orders?.[myId]?.ordered;
+  if (Array.isArray(myOrderFromDb) && myOrderFromDb.length === 5){
+    state.order.submitted = true;
+    state.order.submittedOrder = myOrderFromDb.slice();
   }
 
   ensureOrderStateForMyHand(h);
@@ -1243,8 +1603,9 @@ function renderMyHand(){
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
 
-  // 「小さい順カード」が表示される条件（ただし大が出てる間は描画しない＝②）
-  const isOrderSmallVisible = (draftDone && decided.length >= 5 && state.order.completed && !isOrderBigVisible);
+  // 「小さい順カード」が表示される条件
+  const isOrderSmallVisible =
+    (draftDone && decided.length >= 5 && state.order.completed && !isOrderBigVisible);
 
   if (isOrderBigVisible){
     roleCard.classList.add('role-float');
@@ -1252,13 +1613,22 @@ function renderMyHand(){
   }
 
   let orderSmallBlock = null;
-  if (isOrderSmallVisible){
+const phase = getRoomPhase();
+const isRevealPhase = (phase === 'reveal');
+
+
+if (!isRevealPhase){
+  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す（クリック不可）
+  if (draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable:false });
+  } else if (isOrderSmallVisible){
+    // 従来通り（未確定の編集用）
     orderSmallBlock = document.createElement('div');
     orderSmallBlock.className = 'hand-block order-stack';
 
     const small = document.createElement('div');
     small.className = 'order-card-small';
-    small.title = 'クリックで拡大して並び替え';
+    small.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
 
     const col = document.createElement('div');
     col.className = 'order-slot-col small';
@@ -1279,21 +1649,25 @@ function renderMyHand(){
     }
     small.appendChild(col);
 
-    small.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showOrderBig();
-      renderMyHand();
-    });
+    if (canEditOrder()){
+      small.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showOrderBig();
+        renderMyHand();
+      });
+    } else {
+      small.style.cursor = 'default';
+    }
 
     const roleClone = document.createElement('div');
     roleClone.className = 'role-card-big overlap-left';
     roleClone.textContent = roleCard.textContent;
     orderSmallBlock.appendChild(roleClone);
-
     orderSmallBlock.appendChild(small);
   }
+}
 
-  if (!isOrderSmallVisible && !isOrderBigVisible){
+  if (!orderSmallBlock && !isOrderBigVisible){
     const rolesBlock = document.createElement('div');
     rolesBlock.className = 'hand-block roles';
     rolesBlock.appendChild(roleCard);
@@ -1304,6 +1678,7 @@ function renderMyHand(){
   decidedBlock.className = 'hand-block decided front';
 
   decidedBlock.addEventListener('dragover', (e) => {
+    if (!canEditOrder()) return;
     const payload = safeParseDragPayload(e.dataTransfer?.getData('text/plain') || '');
     if (!payload || payload.type !== 'orderCard') return;
     e.preventDefault();
@@ -1311,6 +1686,7 @@ function renderMyHand(){
   });
   decidedBlock.addEventListener('dragleave', () => decidedBlock.classList.remove('drop-over'));
   decidedBlock.addEventListener('drop', (e) => {
+    if (!canEditOrder()) return;
     decidedBlock.classList.remove('drop-over');
     const payload = safeParseDragPayload(e.dataTransfer?.getData('text/plain') || '');
     if (!payload || payload.type !== 'orderCard' || !payload.cardId) return;
@@ -1328,7 +1704,7 @@ function renderMyHand(){
     c.className = 'my-card smalltxt disabled';
     c.textContent = v;
 
-    if (draftDone && decided.length >= 5){
+    if (draftDone && decided.length >= 5 && canEditOrder()){
       const cardId = `d${i}`;
       c.classList.remove('disabled');
       c.style.cursor = 'grab';
@@ -1419,6 +1795,89 @@ function renderHands(){
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
 
+/* =========================
+   ★ミニ順カード（円の外側）生成
+   - revealフェーズに入った瞬間に全員表示
+   - 他プレイヤーの未公開カードは青塗り
+   - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
+   ========================= */
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex }){
+  if (!Array.isArray(ordered) || ordered.length !== 5) return null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'mini-order-wrap';
+
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  const dist = 54;
+  wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+
+  const card = document.createElement('div');
+  card.className = 'mini-order-card';
+
+  const col = document.createElement('div');
+  col.className = 'mini-order-col';
+
+  // ★ホスト本人だけ「一番上」を公開ボタンにする
+  const hostCanOpenFromTop = (isHost && isMe && revealIndex < 5);
+
+  for (let i=0;i<5;i++){
+    const slot = document.createElement('div');
+    slot.className = 'mini-order-slot';
+    injectMiniSlotBorder(slot);
+
+    const isRevealed = (i < revealIndex) || isMe; // 自分は常に見える
+
+    const chip = document.createElement('div');
+    chip.className = 'mini-order-chip';
+
+    if (isRevealed){
+      chip.textContent = String(ordered[i] ?? '');
+    } else {
+      chip.classList.add('hidden-chip');
+      chip.textContent = '';
+    }
+
+    // ★ここが変更点：ホスト本人の「一番上」だけがボタン
+    if (hostCanOpenFromTop && i === 0){
+      chip.classList.add('open-btn');
+
+      const badge = document.createElement('div');
+      badge.className = 'mini-open-badge';
+      badge.textContent = '▶';
+      chip.appendChild(badge);
+
+      chip.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await hostRevealNext();
+      }, { passive:false });
+    }
+
+    slot.appendChild(chip);
+    col.appendChild(slot);
+  }
+
+  card.appendChild(col);
+  wrap.appendChild(card);
+  return wrap;
+}
+
+function injectMiniSlotBorder(slotEl){
+  if (slotEl.querySelector('.slot-border')) return;
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.classList.add('slot-border');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  const path = document.createElementNS(svgNS, 'path');
+  path.classList.add('border-path');
+  path.setAttribute('d', 'M 99 1 H 19 A 18 18 0 0 0 1 19 V 81 A 18 18 0 0 0 19 99 H 99');
+  svg.appendChild(path);
+  slotEl.appendChild(svg);
+}
+
 function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
   if (!players.length) return;
@@ -1431,6 +1890,10 @@ function renderPlayerCircle(players){
 
   const phaseDraft = !!state.draft && state.draft.phase === 'draft';
   const status = state.draft?.status || null;
+
+  const phase = getRoomPhase();
+  const inReveal = (phase === 'reveal');
+  const revealIndex = getRevealIndex();
 
   players.forEach((p, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
@@ -1449,7 +1912,10 @@ function renderPlayerCircle(players){
     const picked = phaseDraft && status === 'picking' && h && Number.isInteger(h.pickIdx);
     if (picked) tag.classList.add('picked');
 
-    tag.onclick = () => {
+    tag.onclick = (e) => {
+      // ミニ順カードのクリックが座席奪取に波及しないように
+      if (e.target?.closest?.('.mini-order-wrap')) return;
+
       if (p.id === state.userId) return;
       if (!state.roomCode) return;
       if (state.seatedTable !== null) return;
@@ -1489,6 +1955,24 @@ function renderPlayerCircle(players){
 
       row.appendChild(miniHand);
       tag.appendChild(row);
+    }
+
+    // ★次フェーズ（reveal）に入ったら、ミニ順カード（配置カード付）を円の外側へ表示
+    if (inReveal){
+      const ordered = state.orders?.[p.id]?.ordered;
+      const mini = createMiniOrderOutsideTag({
+        ordered,
+        pid: p.id,
+        angle,
+        isMe: (p.id === state.userId),
+        isHost: state.isHost,
+        revealIndex
+      });
+      if (mini){
+        // ミニ順カードのクリックが親のonclickに波及しないように
+        mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+        tag.appendChild(mini);
+      }
     }
 
     playerCircle.appendChild(tag);
@@ -1533,6 +2017,7 @@ btnJoin.addEventListener('click', async () => {
   subscribePlayers();
   subscribeHands();
   subscribeDraft();
+  subscribeOrders(); // ★追加
 
   syncSeatUI();
 });
@@ -1663,6 +2148,8 @@ function subscribePlayers(){
     await syncSeatUI();
     renderPlayerCircle(players);
     hostMaybeAdvanceDraft();
+    hostMaybeEnsureOrderPhase();
+    hostMaybeAdvanceToReveal();
   });
 }
 
@@ -1736,6 +2223,8 @@ async function dealInitialHandsAndStartDraft(){
   });
 
   const now = Date.now();
+
+  // ★新ゲーム開始：フェーズ初期化 + orders を消す
   await Promise.all([
     set(ref(db, `rooms/${state.roomCode}/hands`), hands),
     set(ref(db, `rooms/${state.roomCode}/draft`), {
@@ -1744,8 +2233,24 @@ async function dealInitialHandsAndStartDraft(){
       status: "picking",
       incomingToken: now,
       updatedAt: now
-    })
+    }),
+    update(ref(db, `rooms/${state.roomCode}`), {
+      phase: "draft",
+      revealIndex: 0
+    }),
+    remove(ref(db, `rooms/${state.roomCode}/orders`))
   ]);
+
+  // ローカルも初期化
+  state.order.decidedKey = null;
+  state.order.decidedObjs = [];
+  state.order.slots = Array(5).fill(null);
+  state.order.completed = false;
+  state.order.open = false;
+  state.order._autoOpenedOnce = false;
+  state.order.submitted = false;
+  state.order.submittedOrder = null;
+  hideOrderBig();
 }
 
 async function hostMaybeAdvanceDraft(){
@@ -1829,6 +2334,12 @@ async function hostMaybeAdvanceDraft(){
         status: "done",
         updatedAt: now
       });
+
+      // ★ドラフト完了：順カード配置フェーズへ
+      await update(ref(db, `rooms/${state.roomCode}`), {
+        phase: "order",
+        revealIndex: 0
+      });
     } else {
       await update(ref(db, `rooms/${state.roomCode}/draft`), {
         status: "picking",
@@ -1857,7 +2368,10 @@ btnResetRoom.addEventListener('click', async () => {
     remove(ref(db, `${base}/maxPlayers`)),
     remove(ref(db, `${base}/tables`)),
     remove(ref(db, `${base}/hands`)),
-    remove(ref(db, `${base}/draft`))
+    remove(ref(db, `${base}/draft`)),
+    remove(ref(db, `${base}/orders`)),
+    remove(ref(db, `${base}/phase`)),
+    remove(ref(db, `${base}/revealIndex`))
   ]);
   state.seatedTable = null;
   startPop.classList.add('hidden');
@@ -1868,6 +2382,8 @@ btnResetRoom.addEventListener('click', async () => {
   state.order.completed = false;
   state.order.open = false;
   state.order._autoOpenedOnce = false;
+  state.order.submitted = false;
+  state.order.submittedOrder = null;
   hideOrderBig();
 
   await syncSeatUI();
