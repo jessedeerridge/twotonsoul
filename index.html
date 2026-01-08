@@ -2194,9 +2194,37 @@ btnKickYes.addEventListener('click', async (e) => {
   }
 
   const seatIndex = pendingSeatIndexToSteal;
+  const kickedPlayerId = pendingSeatPlayerIdToSteal;
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   const roomSnap = await get(roomRef);
   const roomData = roomSnap.val() || {};
+
+  if (kickedPlayerId && kickedPlayerId !== state.userId){
+    const [handSnap, orderSnap] = await Promise.all([
+      get(ref(db, `rooms/${state.roomCode}/hands/${kickedPlayerId}`)),
+      get(ref(db, `rooms/${state.roomCode}/orders/${kickedPlayerId}`))
+    ]);
+
+    const handData = handSnap.val();
+    const orderData = orderSnap.val();
+    const updates = {};
+
+    if (handData){
+      updates[`rooms/${state.roomCode}/hands/${state.userId}`] = handData;
+      updates[`rooms/${state.roomCode}/hands/${kickedPlayerId}`] = null;
+    }
+    if (orderData){
+      updates[`rooms/${state.roomCode}/orders/${state.userId}`] = {
+        ...orderData,
+        name: state.userName || orderData.name || ''
+      };
+      updates[`rooms/${state.roomCode}/orders/${kickedPlayerId}`] = null;
+    }
+
+    if (Object.keys(updates).length){
+      await update(ref(db), updates);
+    }
+  }
 
   const tRef = ref(db, `rooms/${state.roomCode}/tables/${seatIndex}`);
   await set(tRef, { playerId: state.userId, playerName: state.userName || '名無し' });
