@@ -1008,7 +1008,7 @@ function getRevealIndex(){
   return Number.isInteger(v) ? v : 0; // 0..5
 }
 function canEditOrder(){
-  return (getRoomPhase() === 'order') && !state.order.submitted;
+  return getRoomPhase() === 'order';
 }
 
 /* =========================
@@ -1025,14 +1025,19 @@ function computeLocalOrderedTexts(){
   if (out.some(t => !t)) return null;
   return out;
 }
+function areTextArraysEqual(a, b){
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === b[i]);
+}
 async function submitMyOrderIfReady(){
   if (!state.roomCode) return;
   if (!canEditOrder()) return;
   if (!state.order.completed) return;
-  if (state.order.submitted) return;
 
   const ordered = computeLocalOrderedTexts();
   if (!ordered) return;
+  if (state.order.submitted && areTextArraysEqual(state.order.submittedOrder, ordered)) return;
 
   const myId = state.userId;
   await set(ref(db, `rooms/${state.roomCode}/orders/${myId}`), {
@@ -1206,6 +1211,19 @@ function fitAllMyCards(){
 function decidedKeyFromArray(arr){
   return Array.isArray(arr) ? arr.join('||') : '';
 }
+function mapSubmittedOrderToSlots(decidedObjs, submittedOrder){
+  if (!Array.isArray(decidedObjs) || !Array.isArray(submittedOrder)) return null;
+  if (submittedOrder.length !== 5) return null;
+  const used = new Set();
+  const mapped = submittedOrder.map((text) => {
+    const idx = decidedObjs.findIndex((o, i) => !used.has(i) && o.text === text);
+    if (idx < 0) return null;
+    used.add(idx);
+    return decidedObjs[idx].id;
+  });
+  if (mapped.some(v => !v)) return null;
+  return mapped;
+}
 
 function ensureOrderStateForMyHand(h){
   const decided = Array.isArray(h?.decided) ? h.decided : [];
@@ -1236,18 +1254,29 @@ function ensureOrderStateForMyHand(h){
     state.order.decidedObjs = decided.slice(0,5).map((text, i) => ({ id:`d${i}`, text }));
     const validIds = new Set(state.order.decidedObjs.map(o=>o.id));
     state.order.slots = state.order.slots.map(cid => validIds.has(cid) ? cid : null);
-    state.order.completed = state.order.slots.every(v => v);
+    const submittedSlots = mapSubmittedOrderToSlots(state.order.decidedObjs, state.order.submittedOrder);
+    if (submittedSlots){
+      state.order.slots = submittedSlots;
+      state.order.completed = true;
+    } else {
+      state.order.completed = state.order.slots.every(v => v);
+    }
 
     if (canEditOrder()){
       if (!state.order.completed && !state.order._autoOpenedOnce){
         state.order._autoOpenedOnce = true;
         showOrderBig();
       }
-      if (!state.order.completed){
-        showOrderBig();
-      }
     } else {
       hideOrderBig();
+    }
+  }
+
+  if (state.order.submittedOrder && state.order.decidedObjs.length === 5 && state.order.slots.every(v => !v)){
+    const submittedSlots = mapSubmittedOrderToSlots(state.order.decidedObjs, state.order.submittedOrder);
+    if (submittedSlots){
+      state.order.slots = submittedSlots;
+      state.order.completed = true;
     }
   }
 
@@ -1631,10 +1660,11 @@ const isRevealPhase = (phase === 'reveal');
 
 
 if (!isRevealPhase){
-  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す（クリック不可）
+  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
   if (draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable:false });
+    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
   } else if (isOrderSmallVisible){
+
     // 従来通り（未確定の編集用）
     orderSmallBlock = document.createElement('div');
     orderSmallBlock.className = 'hand-block order-stack';
