@@ -1642,6 +1642,7 @@ function renderMyHand(){
   roleCard.textContent = h.role ? h.role : '（役職なし）';
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
+  const allowOrderSmall = !isOrderBigVisible;
 
   // 「小さい順カード」が表示される条件
   const isOrderSmallVisible =
@@ -1660,12 +1661,12 @@ function renderMyHand(){
     : (Array.isArray(state.order.submittedOrder) ? state.order.submittedOrder.slice() : null);
 
   if (isRevealPhase){
-    if (!state.isHost && myOrderedTexts && myOrderedTexts.length === 5){
+    if (!state.isHost && allowOrderSmall && myOrderedTexts && myOrderedTexts.length === 5){
       orderSmallBlock = buildOrderSmallBlockFromTexts(myOrderedTexts, { clickable: canEditOrder() });
     }
   } else {
     // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
-    if (draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+    if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
       orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
     } else if (isOrderSmallVisible){
 
