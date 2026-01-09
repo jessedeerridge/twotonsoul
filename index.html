@@ -119,6 +119,22 @@
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
+  .mini-role-back{
+    position:absolute;
+    left:-26px;
+    top:50%;
+    transform:translateY(-50%);
+    width:64px;
+    height:90px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.5);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,0)),
+      linear-gradient(135deg,#111,#3a3a3a);
+    box-shadow:0 4px 10px rgba(0,0,0,.25);
+    pointer-events:none;
+    z-index:2;
+  }
 
 /* ▼このブロック内の overflow を変更 */
   .mini-order-card{
@@ -1654,61 +1670,67 @@ function renderMyHand(){
     document.body.appendChild(roleCard);
   }
 
-  let orderSmallBlock = null;
-const phase = getRoomPhase();
-const isRevealPhase = (phase === 'reveal');
+ let orderSmallBlock = null;
+  const phase = getRoomPhase();
+  const isRevealPhase = (phase === 'reveal');
+  const myOrderedTexts = Array.isArray(state.orders?.[myId]?.ordered)
+    ? state.orders[myId].ordered.slice()
+    : (Array.isArray(state.order.submittedOrder) ? state.order.submittedOrder.slice() : null);
 
+  if (isRevealPhase){
+    if (myOrderedTexts && myOrderedTexts.length === 5){
+      orderSmallBlock = buildOrderSmallBlockFromTexts(myOrderedTexts, { clickable:false });
+    }
+  } else {
+    // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
+    if (draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+      orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
+    } else if (isOrderSmallVisible){
 
-if (!isRevealPhase){
-  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
-  if (draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
-  } else if (isOrderSmallVisible){
+      // 従来通り（未確定の編集用）
+      orderSmallBlock = document.createElement('div');
+      orderSmallBlock.className = 'hand-block order-stack';
 
-    // 従来通り（未確定の編集用）
-    orderSmallBlock = document.createElement('div');
-    orderSmallBlock.className = 'hand-block order-stack';
+      const small = document.createElement('div');
+      small.className = 'order-card-small';
+      small.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
 
-    const small = document.createElement('div');
-    small.className = 'order-card-small';
-    small.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
+      const col = document.createElement('div');
+      col.className = 'order-slot-col small';
 
-    const col = document.createElement('div');
-    col.className = 'order-slot-col small';
+      for(let i=0;i<5;i++){
+        const slot = document.createElement('div');
+        slot.className = 'order-slot small';
+        injectSlotBorder(slot);
 
-    for(let i=0;i<5;i++){
-      const slot = document.createElement('div');
-      slot.className = 'order-slot small';
-      injectSlotBorder(slot);
-
-      const cid = state.order.slots[i];
-      if (cid){
-        const chip = document.createElement('div');
-        chip.className = 'order-in-slot small';
-        chip.textContent = cardTextById(cid);
-        slot.appendChild(chip);
+        const cid = state.order.slots[i];
+        if (cid){
+          const chip = document.createElement('div');
+          chip.className = 'order-in-slot small';
+          chip.textContent = cardTextById(cid);
+          slot.appendChild(chip);
+        }
+        col.appendChild(slot);
       }
-      col.appendChild(slot);
-    }
-    small.appendChild(col);
+      small.appendChild(col);
 
-    if (canEditOrder()){
-      small.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showOrderBig();
-        renderMyHand();
-      });
-    } else {
-      small.style.cursor = 'default';
-    }
+      if (canEditOrder()){
+        small.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showOrderBig();
+          renderMyHand();
+        });
+      } else {
+        small.style.cursor = 'default';
+      }
 
-    const roleClone = document.createElement('div');
-    roleClone.className = 'role-card-big overlap-left';
-    roleClone.textContent = roleCard.textContent;
-    orderSmallBlock.appendChild(roleClone);
-    orderSmallBlock.appendChild(small);
+      const roleClone = document.createElement('div');
+      roleClone.className = 'role-card-big overlap-left';
+      roleClone.textContent = roleCard.textContent;
+      orderSmallBlock.appendChild(roleClone);
+      orderSmallBlock.appendChild(small);
+    }
   }
-}
 
   if (!orderSmallBlock && !isOrderBigVisible){
     const rolesBlock = document.createElement('div');
@@ -1861,6 +1883,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
   const col = document.createElement('div');
   col.className = 'mini-order-col';
 
+
   // ★ホスト本人は「未公開の全カード」を公開ボタンにする（公開は上から順番）
   const hostCanOpen = (isHost && isMe && revealIndex < 5);
   for (let i=0;i<5;i++){
@@ -1901,6 +1924,11 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   card.appendChild(col);
   wrap.appendChild(card);
+  if (!isMe){
+    const roleBack = document.createElement('div');
+    roleBack.className = 'mini-role-back';
+    wrap.appendChild(roleBack);
+  }
   if (hostCanOpen){
     card.classList.add('clickable');
     card.addEventListener('click', async (e) => {
@@ -1975,53 +2003,58 @@ function renderPlayerCircle(players){
       kickDialog.classList.remove('hidden');
     };
 
-    if (p.id !== state.userId && h){
+   if (p.id !== state.userId && h){
       const decidedCount = Array.isArray(h.decided) ? h.decided.length : 0;
+      const placedCount = Array.isArray(state.orders?.[p.id]?.ordered)
+        ? state.orders[p.id].ordered.length
+        : 0;
+      const visibleCount = Math.max(0, decidedCount - placedCount);
+      const count = Math.min(5, visibleCount);
 
-      const row = document.createElement('div');
-      row.className = 'mini-hand-row';
+      if (count > 0){
+        const row = document.createElement('div');
+        row.className = 'mini-hand-row';
 
-      const miniRole = document.createElement('div');
-      miniRole.className = 'mini-role-card';
-      miniRole.textContent = '正体';
-      row.appendChild(miniRole);
+        const miniHand = document.createElement('div');
+        miniHand.className = 'mini-hand';
 
-      const miniHand = document.createElement('div');
-      miniHand.className = 'mini-hand';
+        const spread = 70;
+        const base = (count > 1) ? (-spread/2) : 0;
 
-      const count = Math.min(5, decidedCount);
-      const spread = 70;
-      const base = (count > 1) ? (-spread/2) : 0;
+        for (let i=0;i<count;i++){
+          const card = document.createElement('div');
+          card.className = 'mini-card';
+          card.textContent = '';
+          const angleDeg = (count > 1) ? base + (spread/(count-1))*i : 0;
+          card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
+          card.style.zIndex = String(10 + i);
+          miniHand.appendChild(card);
+        }
 
-      for (let i=0;i<count;i++){
-        const card = document.createElement('div');
-        card.className = 'mini-card';
-        card.textContent = '';
-        const angleDeg = (count > 1) ? base + (spread/(count-1))*i : 0;
-        card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
-        card.style.zIndex = String(10 + i);
-        miniHand.appendChild(card);
+        row.appendChild(miniHand);
+        tag.appendChild(row);
       }
-
-      row.appendChild(miniHand);
-      tag.appendChild(row);
     }
 
     // ★次フェーズ（reveal）に入ったら、ミニ順カード（配置カード付）を円の外側へ表示
     if (inReveal){
-      const ordered = state.orders?.[p.id]?.ordered;
-      const mini = createMiniOrderOutsideTag({
-        ordered,
-        pid: p.id,
-        angle,
-        isMe: (p.id === state.userId),
-        isHost: state.isHost,
-        revealIndex
-      });
-      if (mini){
-        // ミニ順カードのクリックが親のonclickに波及しないように
-        mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
-        tag.appendChild(mini);
+      const isMe = (p.id === state.userId);
+      const shouldShowMiniOrder = !(isMe && !state.isHost);
+      if (shouldShowMiniOrder){
+        const ordered = state.orders?.[p.id]?.ordered;
+        const mini = createMiniOrderOutsideTag({
+          ordered,
+          pid: p.id,
+          angle,
+          isMe,
+          isHost: state.isHost,
+          revealIndex
+        });
+        if (mini){
+          // ミニ順カードのクリックが親のonclickに波及しないように
+          mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+          tag.appendChild(mini);
+        }
       }
     }
 
