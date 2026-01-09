@@ -241,29 +241,10 @@
     border-color:#111;
     box-shadow:0 8px 18px rgba(0,0,0,.22);
   }
-  .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
+ .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
 
   .mini-order-card.clickable{
     cursor:pointer;
-  }
-
-  .mini-open-badge{
-    position:absolute;
-    left:-6px;
-    top:-6px;
-    width:18px;
-    height:18px;
-    border-radius:50%;
-    background:#111;
-    color:#fff;
-    font-size:10px;
-    font-weight:900;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border:1px solid rgba(255,255,255,.65);
-    box-shadow:0 6px 14px rgba(0,0,0,.18);
-    pointer-events:none;
   }
 
  .my-hand-wrapper{
@@ -1024,7 +1005,8 @@ function getRevealIndex(){
   return Number.isInteger(v) ? v : 0; // 0..5
 }
 function canEditOrder(){
-  return getRoomPhase() === 'order';
+  const phase = getRoomPhase();
+  return phase === 'order' || phase === 'reveal';
 }
 
 /* =========================
@@ -1245,8 +1227,8 @@ function ensureOrderStateForMyHand(h){
   const decided = Array.isArray(h?.decided) ? h.decided : [];
   const draftDone = !!state.draft && state.draft.phase === 'done';
 
-  // revealフェーズに入ったら「並び替えUI」は閉じてロック（表示は別途）
-  if (getRoomPhase() === 'reveal'){
+  // 並び替え不可のフェーズなら閉じる
+  if (!canEditOrder()){
     state.order.open = false;
     hideOrderBig();
   }
@@ -1678,8 +1660,8 @@ function renderMyHand(){
     : (Array.isArray(state.order.submittedOrder) ? state.order.submittedOrder.slice() : null);
 
   if (isRevealPhase){
-    if (myOrderedTexts && myOrderedTexts.length === 5){
-      orderSmallBlock = buildOrderSmallBlockFromTexts(myOrderedTexts, { clickable:false });
+    if (!state.isHost && myOrderedTexts && myOrderedTexts.length === 5){
+      orderSmallBlock = buildOrderSmallBlockFromTexts(myOrderedTexts, { clickable: canEditOrder() });
     }
   } else {
     // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
@@ -1905,12 +1887,6 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
     // ★ホスト本人の未公開段は全部ボタン（クリックで次の段を公開）
     if (hostCanOpen && i >= revealIndex){
       chip.classList.add('open-btn');
-
-      const badge = document.createElement('div');
-      badge.className = 'mini-open-badge';
-      badge.textContent = '▶';
-      chip.appendChild(badge);
-
       chip.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1923,23 +1899,24 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
   }
 
   card.appendChild(col);
+  if (isMe && canEditOrder()){
+    card.classList.add('clickable');
+    card.addEventListener('click', (e) => {
+      if (e.target?.closest?.('.mini-order-chip')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showOrderBig();
+      renderMyHand();
+    });
+  }
   wrap.appendChild(card);
   if (!isMe){
     const roleBack = document.createElement('div');
     roleBack.className = 'mini-role-back';
     wrap.appendChild(roleBack);
   }
-  if (hostCanOpen){
-    card.classList.add('clickable');
-    card.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      await hostRevealNext();
-    }, { passive:false });
-  }
   return wrap;
 }
-
 
 function injectMiniSlotBorder(slotEl){
   if (slotEl.querySelector('.slot-border')) return;
@@ -2003,7 +1980,7 @@ function renderPlayerCircle(players){
       kickDialog.classList.remove('hidden');
     };
 
-   if (p.id !== state.userId && h){
+   if (phaseDraft && p.id !== state.userId && h){
       const decidedCount = Array.isArray(h.decided) ? h.decided.length : 0;
       const placedCount = Array.isArray(state.orders?.[p.id]?.ordered)
         ? state.orders[p.id].ordered.length
