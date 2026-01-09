@@ -678,6 +678,15 @@
     outline-offset:4px;
     border-radius:12px;
   }
+
+/* ★拡大中は「自分の」ミニ順カードを消す（2枚見える問題の解消） */
+body.order-open .mini-order-wrap.me{
+  display:none;
+}
+
+
+
+
 </style>
 </head>
 <body>
@@ -1854,6 +1863,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   const wrap = document.createElement('div');
   wrap.className = 'mini-order-wrap';
+if (isMe) wrap.classList.add('me');
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
