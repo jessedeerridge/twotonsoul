@@ -122,7 +122,7 @@
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
-  .mini-role-back{
+  .mini-role-card{
     position:relative;
     width:64px;
     height:90px;
@@ -130,8 +130,20 @@
     border:1px solid #7c3aed;
     background:#7c3aed;
     box-shadow:0 4px 10px rgba(0,0,0,.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    font-weight:900;
+    color:#111;
+    text-align:center;
+    padding:6px;
+    box-sizing:border-box;
     pointer-events:none;
     z-index:1;
+  }
+  .mini-role-card.front{
+    background:#fff;
   }
 
 /* ▼このブロック内の overflow を変更 */
@@ -1856,12 +1868,20 @@ function renderHands(){
    - 他プレイヤーの未公開カードは青塗り
    - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
    ========================= */
-function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex }){
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName }){
   if (!Array.isArray(ordered) || ordered.length !== 5) return null;
 
   const wrap = document.createElement('div');
   wrap.className = 'mini-order-wrap';
   if (isMe) wrap.classList.add('me');
+
+  const roleEl = document.createElement('div');
+  roleEl.className = 'mini-role-card';
+  if (isMe){
+    roleEl.classList.add('front');
+    roleEl.textContent = roleName || '（役職なし）';
+  }
+  wrap.appendChild(roleEl);
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
@@ -1917,11 +1937,6 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
       showOrderBig();
       renderMyHand();
     });
-  }
-  if (!isMe){
-    const roleBack = document.createElement('div');
-    roleBack.className = 'mini-role-back';
-    wrap.appendChild(roleBack);
   }
   wrap.appendChild(card);
   return wrap;
@@ -2033,7 +2048,8 @@ if (inReveal){
     angle,
     isMe,
     isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-    revealIndex
+    revealIndex,
+    roleName: isMe ? state.hands?.[p.id]?.role : null
   });
 
   if (mini){
