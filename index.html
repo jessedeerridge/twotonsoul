@@ -368,12 +368,19 @@
     box-sizing:border-box;
   }
 
-  /* ★順カード小のとき：正体カードを左に“重ねる” */
-  .role-card-big.overlap-left{
-    margin-right:-26px;   /* 重ねる量（調整可） */
-    z-index:3;            /* order-smallより前 */
+  .order-stack-row{
+    display:flex;
+    align-items:center;
+    gap:var(--role-order-gap, 6px);
   }
   .order-card-small{position:relative; z-index:2;}
+  .order-card-placeholder{
+    width:86px;
+    height:104px;
+    border-radius:14px;
+    border:1px solid transparent;
+    visibility:hidden;
+  }
 
   /* ★①：順カード拡大時：正体カードを「順カードの左で重ねる」 */
   .role-float{
@@ -1561,10 +1568,7 @@ document.addEventListener('pointerdown', (e) => {
 /* =========================
    ★小さい順カードを「テキスト配列」から生成（確定済み表示にも使う）
    ========================= */
-function buildOrderSmallBlockFromTexts(texts, { clickable }){
-  const orderSmallBlock = document.createElement('div');
-  orderSmallBlock.className = 'hand-block order-stack';
-
+function buildOrderSmallCardFromTexts(texts, { clickable }){
   const small = document.createElement('div');
   small.className = 'order-card-small';
   small.title = clickable ? 'クリックで拡大（並び替え）' : '確定済み';
@@ -1598,14 +1602,7 @@ function buildOrderSmallBlockFromTexts(texts, { clickable }){
     small.style.cursor = 'default';
   }
 
-  // 左に正体カードを重ねる（従来の見た目維持）
-  const roleClone = document.createElement('div');
-  roleClone.className = 'role-card-big overlap-left';
-  roleClone.textContent = (state.hands?.[state.userId]?.role) ? state.hands[state.userId].role : '（役職なし）';
-  orderSmallBlock.appendChild(roleClone);
-  orderSmallBlock.appendChild(small);
-
-  return orderSmallBlock;
+  return small;
 }
 
 function renderMyHand(){
@@ -1646,7 +1643,7 @@ function renderMyHand(){
   /* =========================
      ★正体カードの配置ロジック
      - 順カード拡大中：画面中央の順カードの「左で重ねる」（role-float）
-     - 順カード小：順カード小の左に重ねる（overlap-left）
+     - 通常時：順カード小/未配置を問わず一定間隔の横並び
      ========================= */
   const roleCard = document.createElement('div');
   roleCard.className = 'role-card-big';
@@ -1654,6 +1651,7 @@ function renderMyHand(){
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
   const allowOrderSmall = !isOrderBigVisible;
+  const roleText = h.role ? h.role : '（役職なし）';
 
   // 「小さい順カード」が表示される条件
   const isOrderSmallVisible =
@@ -1667,65 +1665,68 @@ function renderMyHand(){
  let orderSmallBlock = null;
   const phase = getRoomPhase();
   const isRevealPhase = (phase === 'reveal');
-  const myOrderedTexts = Array.isArray(state.orders?.[myId]?.ordered)
-    ? state.orders[myId].ordered.slice()
-    : (Array.isArray(state.order.submittedOrder) ? state.order.submittedOrder.slice() : null);
 
-if (!isRevealPhase){
-  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
-  if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
-  } else if (isOrderSmallVisible){
+  let orderSmallCard = null;
+  if (!isRevealPhase){
+    // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
+    if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+      orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
+    } else if (isOrderSmallVisible){
+      // 従来通り（未確定の編集用）
+      orderSmallCard = document.createElement('div');
+      orderSmallCard.className = 'order-card-small';
+      orderSmallCard.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
 
-    // 従来通り（未確定の編集用）
-    orderSmallBlock = document.createElement('div');
-    orderSmallBlock.className = 'hand-block order-stack';
+      const col = document.createElement('div');
+      col.className = 'order-slot-col small';
 
-    const small = document.createElement('div');
-    small.className = 'order-card-small';
-    small.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
+      for(let i=0;i<5;i++){
+        const slot = document.createElement('div');
+        slot.className = 'order-slot small';
+        injectSlotBorder(slot);
 
-    const col = document.createElement('div');
-    col.className = 'order-slot-col small';
-
-    for(let i=0;i<5;i++){
-      const slot = document.createElement('div');
-      slot.className = 'order-slot small';
-      injectSlotBorder(slot);
-
-      const cid = state.order.slots[i];
-      if (cid){
-        const chip = document.createElement('div');
-        chip.className = 'order-in-slot small';
-        chip.textContent = cardTextById(cid);
-        slot.appendChild(chip);
+        const cid = state.order.slots[i];
+        if (cid){
+          const chip = document.createElement('div');
+          chip.className = 'order-in-slot small';
+          chip.textContent = cardTextById(cid);
+          slot.appendChild(chip);
+        }
+        col.appendChild(slot);
       }
-      col.appendChild(slot);
-    }
-    small.appendChild(col);
+      orderSmallCard.appendChild(col);
 
-    if (canEditOrder()){
-      small.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showOrderBig();
-        renderMyHand();
-      });
-    } else {
-      small.style.cursor = 'default';
+      if (canEditOrder()){
+        orderSmallCard.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showOrderBig();
+          renderMyHand();
+        });
+      } else {
+        orderSmallCard.style.cursor = 'default';
+      }
     }
+  }
+
+  if (!isOrderBigVisible){
+    const orderStack = document.createElement('div');
+    orderStack.className = 'hand-block order-stack order-stack-row';
 
     const roleClone = document.createElement('div');
-    roleClone.className = 'role-card-big overlap-left';
-    roleClone.textContent = roleCard.textContent;
-    orderSmallBlock.appendChild(roleClone);
-    orderSmallBlock.appendChild(small);
-  }
-}
-  if (!orderSmallBlock && !isOrderBigVisible){
-    const rolesBlock = document.createElement('div');
-    rolesBlock.className = 'hand-block roles';
-    rolesBlock.appendChild(roleCard);
-    handArea.appendChild(rolesBlock);
+    roleClone.className = 'role-card-big';
+    roleClone.textContent = roleText;
+
+    orderStack.appendChild(roleClone);
+
+    if (orderSmallCard){
+      orderStack.appendChild(orderSmallCard);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'order-card-placeholder';
+      orderStack.appendChild(placeholder);
+    }
+
+    handArea.appendChild(orderStack);
   }
 
   const decidedBlock = document.createElement('div');
