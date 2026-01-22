@@ -1915,9 +1915,11 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
     });
   }
   wrap.appendChild(card);
-  const roleBack = document.createElement('div');
-  roleBack.className = 'mini-role-back';
-  wrap.appendChild(roleBack);
+  if (!isMe){
+    const roleBack = document.createElement('div');
+    roleBack.className = 'mini-role-back';
+    wrap.appendChild(roleBack);
+  }
   return wrap;
 }
 
