@@ -1857,7 +1857,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   const wrap = document.createElement('div');
   wrap.className = 'mini-order-wrap';
-if (isMe) wrap.classList.add('me');
+  if (isMe) wrap.classList.add('me');
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
@@ -1915,11 +1915,9 @@ if (isMe) wrap.classList.add('me');
     });
   }
   wrap.appendChild(card);
-  if (!isMe){
-    const roleBack = document.createElement('div');
-    roleBack.className = 'mini-role-back';
-    wrap.appendChild(roleBack);
-  }
+  const roleBack = document.createElement('div');
+  roleBack.className = 'mini-role-back';
+  wrap.appendChild(roleBack);
   return wrap;
 }
 
