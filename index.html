@@ -115,25 +115,23 @@
     position:absolute;
     left:50%;
     top:50%;
+    display:flex;
+    align-items:center;
+    gap:6px;
     transform:translate(-50%,-50%);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
   .mini-role-back{
-    position:absolute;
-    left:-26px;
-    top:50%;
-    transform:translateY(-50%);
+    position:relative;
     width:64px;
     height:90px;
     border-radius:10px;
-    border:1px solid rgba(255,255,255,.5);
-    background:
-      linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,0)),
-      linear-gradient(135deg,#111,#3a3a3a);
+    border:1px solid #7c3aed;
+    background:#7c3aed;
     box-shadow:0 4px 10px rgba(0,0,0,.25);
     pointer-events:none;
-    z-index:2;
+    z-index:1;
   }
 
 /* ▼このブロック内の overflow を変更 */
@@ -207,9 +205,10 @@
     width:48px;
     height:14px;
     border-radius:8px;
-    border:1px solid rgba(0,0,0,.18);
+    border:1px solid #7c3aed;
     background:#fff;
-    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    color:#111;
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -225,10 +224,10 @@
   }
 
   .mini-order-chip.hidden-chip{
-    background:#2563eb;     /* 青塗り */
-    border-color:#1d4ed8;
-    color:#2563eb;          /* 文字は見えないように（実質無地） */
-    box-shadow:0 6px 14px rgba(37,99,235,.25);
+    background:#7c3aed;
+    border-color:#7c3aed;
+    color:#7c3aed;          /* 文字は見えないように（実質無地） */
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
   }
   .mini-order-chip.hidden-chip::after{
     content:'';
@@ -237,9 +236,9 @@
     pointer-events:auto;
     cursor:pointer;
     color:#fff;
-    background:#111;
-    border-color:#111;
-    box-shadow:0 8px 18px rgba(0,0,0,.22);
+    background:#7c3aed;
+    border-color:#7c3aed;
+    box-shadow:0 8px 18px rgba(124,58,237,.35);
   }
  .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
 
@@ -584,9 +583,10 @@
     width:80px;
     height:44px;
     border-radius:12px;
-    border:1px solid rgba(0,0,0,.18);
+    border:1px solid #7c3aed;
     background:#fff;
-    box-shadow:0 10px 24px rgba(0,0,0,.18);
+    color:#111;
+    box-shadow:0 10px 24px rgba(124,58,237,.25);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -669,7 +669,10 @@
     height:14px;
     border-radius:8px;
     font-size:9px;
-    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    border:1px solid #7c3aed;
+    background:#fff;
+    color:#111;
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
     padding:0 3px;
   }
 
@@ -1914,12 +1917,12 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
       renderMyHand();
     });
   }
-  wrap.appendChild(card);
   if (!isMe){
     const roleBack = document.createElement('div');
     roleBack.className = 'mini-role-back';
     wrap.appendChild(roleBack);
   }
+  wrap.appendChild(card);
   return wrap;
 }
 
