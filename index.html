@@ -156,7 +156,7 @@
     text-align:center;
     padding:6px;
     box-sizing:border-box;
-    pointer-events:none;
+    pointer-events:auto;
     z-index:2;
   }
   .mini-role-card.front{
@@ -1959,12 +1959,14 @@ function renderMyHand(){
 
     orderStack.appendChild(roleClone);
 
-    if (orderSmallCard){
-      orderStack.appendChild(orderSmallCard);
-    } else if (!phaseDraft) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'order-card-placeholder';
-      orderStack.appendChild(placeholder);
+    if (!isRevealPhase){
+      if (orderSmallCard){
+        orderStack.appendChild(orderSmallCard);
+      } else if (!phaseDraft) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'order-card-placeholder';
+        orderStack.appendChild(placeholder);
+      }
     }
 
     handArea.appendChild(orderStack);
