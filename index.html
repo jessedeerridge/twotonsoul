@@ -115,29 +115,40 @@
     position:absolute;
     left:50%;
     top:50%;
+    display:flex;
+    align-items:center;
+    gap:0;
     transform:translate(-50%,-50%);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
-  .mini-role-back{
-    position:absolute;
-    left:-26px;
-    top:50%;
-    transform:translateY(-50%);
+  .mini-role-card{
+    position:relative;
     width:64px;
     height:90px;
     border-radius:10px;
-    border:1px solid rgba(255,255,255,.5);
-    background:
-      linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,0)),
-      linear-gradient(135deg,#111,#3a3a3a);
+    border:1px solid #7c3aed;
+    background:#7c3aed;
     box-shadow:0 4px 10px rgba(0,0,0,.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    font-weight:900;
+    color:#111;
+    text-align:center;
+    padding:6px;
+    box-sizing:border-box;
     pointer-events:none;
     z-index:2;
+  }
+  .mini-role-card.front{
+    background:#fff;
   }
 
 /* ▼このブロック内の overflow を変更 */
   .mini-order-card{
+    margin-left:-16px;
     width:86px;
     height:104px;
   border-radius:14px;
@@ -147,6 +158,7 @@
     position:relative;
     overflow:visible; /* ★ここ：hidden → visible */
     pointer-events:auto;
+    z-index:1;
   }
 
 
@@ -207,9 +219,10 @@
     width:48px;
     height:14px;
     border-radius:8px;
-    border:1px solid rgba(0,0,0,.18);
+    border:1px solid #7c3aed;
     background:#fff;
-    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    color:#111;
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -225,10 +238,10 @@
   }
 
   .mini-order-chip.hidden-chip{
-    background:#2563eb;     /* 青塗り */
-    border-color:#1d4ed8;
-    color:#2563eb;          /* 文字は見えないように（実質無地） */
-    box-shadow:0 6px 14px rgba(37,99,235,.25);
+    background:#7c3aed;
+    border-color:#7c3aed;
+    color:#7c3aed;          /* 文字は見えないように（実質無地） */
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
   }
   .mini-order-chip.hidden-chip::after{
     content:'';
@@ -237,9 +250,9 @@
     pointer-events:auto;
     cursor:pointer;
     color:#fff;
-    background:#111;
-    border-color:#111;
-    box-shadow:0 8px 18px rgba(0,0,0,.22);
+    background:#7c3aed;
+    border-color:#7c3aed;
+    box-shadow:0 8px 18px rgba(124,58,237,.35);
   }
  .mini-order-chip.open-btn:active{ transform:translateY(-50%) scale(.98); }
 
@@ -367,14 +380,27 @@
     user-select:none;
     position:relative;
     box-sizing:border-box;
+    z-index:2;
   }
 
-  /* ★順カード小のとき：正体カードを左に“重ねる” */
-  .role-card-big.overlap-left{
-    margin-right:-26px;   /* 重ねる量（調整可） */
-    z-index:3;            /* order-smallより前 */
+  .order-stack-row{
+    display:flex;
+    align-items:center;
+    gap:0;
   }
-  .order-card-small{position:relative; z-index:2;}
+  .order-stack-row .order-card-small,
+  .order-stack-row .order-card-placeholder{
+    margin-left:-16px;
+  }
+  .order-card-small{position:relative; z-index:1;}
+  .order-card-placeholder{
+    width:86px;
+    height:104px;
+    border-radius:14px;
+    border:1px solid transparent;
+    visibility:hidden;
+    z-index:1;
+  }
 
   /* ★①：順カード拡大時：正体カードを「順カードの左で重ねる」 */
   .role-float{
@@ -584,9 +610,10 @@
     width:80px;
     height:44px;
     border-radius:12px;
-    border:1px solid rgba(0,0,0,.18);
+    border:1px solid #7c3aed;
     background:#fff;
-    box-shadow:0 10px 24px rgba(0,0,0,.18);
+    color:#111;
+    box-shadow:0 10px 24px rgba(124,58,237,.25);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -669,7 +696,10 @@
     height:14px;
     border-radius:8px;
     font-size:9px;
-    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    border:1px solid #7c3aed;
+    background:#fff;
+    color:#111;
+    box-shadow:0 6px 14px rgba(124,58,237,.25);
     padding:0 3px;
   }
 
@@ -1558,10 +1588,7 @@ document.addEventListener('pointerdown', (e) => {
 /* =========================
    ★小さい順カードを「テキスト配列」から生成（確定済み表示にも使う）
    ========================= */
-function buildOrderSmallBlockFromTexts(texts, { clickable }){
-  const orderSmallBlock = document.createElement('div');
-  orderSmallBlock.className = 'hand-block order-stack';
-
+function buildOrderSmallCardFromTexts(texts, { clickable }){
   const small = document.createElement('div');
   small.className = 'order-card-small';
   small.title = clickable ? 'クリックで拡大（並び替え）' : '確定済み';
@@ -1595,14 +1622,7 @@ function buildOrderSmallBlockFromTexts(texts, { clickable }){
     small.style.cursor = 'default';
   }
 
-  // 左に正体カードを重ねる（従来の見た目維持）
-  const roleClone = document.createElement('div');
-  roleClone.className = 'role-card-big overlap-left';
-  roleClone.textContent = (state.hands?.[state.userId]?.role) ? state.hands[state.userId].role : '（役職なし）';
-  orderSmallBlock.appendChild(roleClone);
-  orderSmallBlock.appendChild(small);
-
-  return orderSmallBlock;
+  return small;
 }
 
 function renderMyHand(){
@@ -1643,7 +1663,7 @@ function renderMyHand(){
   /* =========================
      ★正体カードの配置ロジック
      - 順カード拡大中：画面中央の順カードの「左で重ねる」（role-float）
-     - 順カード小：順カード小の左に重ねる（overlap-left）
+     - 通常時：順カード小/未配置を問わず一定間隔の横並び
      ========================= */
   const roleCard = document.createElement('div');
   roleCard.className = 'role-card-big';
@@ -1651,6 +1671,7 @@ function renderMyHand(){
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
   const allowOrderSmall = !isOrderBigVisible;
+  const roleText = h.role ? h.role : '（役職なし）';
 
   // 「小さい順カード」が表示される条件
   const isOrderSmallVisible =
@@ -1664,65 +1685,68 @@ function renderMyHand(){
  let orderSmallBlock = null;
   const phase = getRoomPhase();
   const isRevealPhase = (phase === 'reveal');
-  const myOrderedTexts = Array.isArray(state.orders?.[myId]?.ordered)
-    ? state.orders[myId].ordered.slice()
-    : (Array.isArray(state.order.submittedOrder) ? state.order.submittedOrder.slice() : null);
 
-if (!isRevealPhase){
-  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
-  if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-    orderSmallBlock = buildOrderSmallBlockFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
-  } else if (isOrderSmallVisible){
+  let orderSmallCard = null;
+  if (!isRevealPhase){
+    // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
+    if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+      orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
+    } else if (isOrderSmallVisible){
+      // 従来通り（未確定の編集用）
+      orderSmallCard = document.createElement('div');
+      orderSmallCard.className = 'order-card-small';
+      orderSmallCard.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
 
-    // 従来通り（未確定の編集用）
-    orderSmallBlock = document.createElement('div');
-    orderSmallBlock.className = 'hand-block order-stack';
+      const col = document.createElement('div');
+      col.className = 'order-slot-col small';
 
-    const small = document.createElement('div');
-    small.className = 'order-card-small';
-    small.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
+      for(let i=0;i<5;i++){
+        const slot = document.createElement('div');
+        slot.className = 'order-slot small';
+        injectSlotBorder(slot);
 
-    const col = document.createElement('div');
-    col.className = 'order-slot-col small';
-
-    for(let i=0;i<5;i++){
-      const slot = document.createElement('div');
-      slot.className = 'order-slot small';
-      injectSlotBorder(slot);
-
-      const cid = state.order.slots[i];
-      if (cid){
-        const chip = document.createElement('div');
-        chip.className = 'order-in-slot small';
-        chip.textContent = cardTextById(cid);
-        slot.appendChild(chip);
+        const cid = state.order.slots[i];
+        if (cid){
+          const chip = document.createElement('div');
+          chip.className = 'order-in-slot small';
+          chip.textContent = cardTextById(cid);
+          slot.appendChild(chip);
+        }
+        col.appendChild(slot);
       }
-      col.appendChild(slot);
-    }
-    small.appendChild(col);
+      orderSmallCard.appendChild(col);
 
-    if (canEditOrder()){
-      small.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showOrderBig();
-        renderMyHand();
-      });
-    } else {
-      small.style.cursor = 'default';
+      if (canEditOrder()){
+        orderSmallCard.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showOrderBig();
+          renderMyHand();
+        });
+      } else {
+        orderSmallCard.style.cursor = 'default';
+      }
     }
+  }
+
+  if (!isOrderBigVisible && !(isRevealPhase && state.order.completed)){
+    const orderStack = document.createElement('div');
+    orderStack.className = 'hand-block order-stack order-stack-row';
 
     const roleClone = document.createElement('div');
-    roleClone.className = 'role-card-big overlap-left';
-    roleClone.textContent = roleCard.textContent;
-    orderSmallBlock.appendChild(roleClone);
-    orderSmallBlock.appendChild(small);
-  }
-}
-  if (!orderSmallBlock && !isOrderBigVisible){
-    const rolesBlock = document.createElement('div');
-    rolesBlock.className = 'hand-block roles';
-    rolesBlock.appendChild(roleCard);
-    handArea.appendChild(rolesBlock);
+    roleClone.className = 'role-card-big';
+    roleClone.textContent = roleText;
+
+    orderStack.appendChild(roleClone);
+
+    if (orderSmallCard){
+      orderStack.appendChild(orderSmallCard);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'order-card-placeholder';
+      orderStack.appendChild(placeholder);
+    }
+
+    handArea.appendChild(orderStack);
   }
 
   const decidedBlock = document.createElement('div');
@@ -1852,12 +1876,20 @@ function renderHands(){
    - 他プレイヤーの未公開カードは青塗り
    - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
    ========================= */
-function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex }){
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName }){
   if (!Array.isArray(ordered) || ordered.length !== 5) return null;
 
   const wrap = document.createElement('div');
   wrap.className = 'mini-order-wrap';
-if (isMe) wrap.classList.add('me');
+  if (isMe) wrap.classList.add('me');
+
+  const roleEl = document.createElement('div');
+  roleEl.className = 'mini-role-card';
+  if (isMe){
+    roleEl.classList.add('front');
+    roleEl.textContent = roleName || '（役職なし）';
+  }
+  wrap.appendChild(roleEl);
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
@@ -1915,11 +1947,6 @@ if (isMe) wrap.classList.add('me');
     });
   }
   wrap.appendChild(card);
-  if (!isMe){
-    const roleBack = document.createElement('div');
-    roleBack.className = 'mini-role-back';
-    wrap.appendChild(roleBack);
-  }
   return wrap;
 }
 
@@ -2029,7 +2056,8 @@ if (inReveal){
     angle,
     isMe,
     isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-    revealIndex
+    revealIndex,
+    roleName: isMe ? state.hands?.[p.id]?.role : null
   });
 
   if (mini){
