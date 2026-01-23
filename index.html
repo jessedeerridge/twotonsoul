@@ -260,6 +260,48 @@
     cursor:pointer;
   }
 
+  .otherplayercircle{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:190px;
+    height:190px;
+    border-radius:50%;
+    border:2px solid rgba(17,17,17,.22);
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+    pointer-events:auto;
+    z-index:0;
+  }
+  .otherplayercircle.active-drop{
+    border-color:rgba(255,165,0,.8);
+    box-shadow:0 10px 22px rgba(255,165,0,.25);
+  }
+
+  .order-token{
+    position:absolute;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #fde047, #f59e0b);
+    border:2px solid #b45309;
+    box-shadow:0 8px 16px rgba(0,0,0,.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:900;
+    color:#78350f;
+    user-select:none;
+    cursor:grab;
+    touch-action:none;
+    z-index:5;
+  }
+  .order-token:active{cursor:grabbing;}
+  .order-token.dragging{
+    position:fixed;
+    z-index:40;
+    pointer-events:none;
+  }
+
  .my-hand-wrapper{
     margin-top:6px;
     text-align:center;
@@ -867,6 +909,9 @@ const state = {
     open: false,
     _autoOpenedOnce: false,
     dragging: null,
+    tokenTargetId: null,
+    tokenDragging: null,
+    tokenEl: null,
 
     // ★追加：自分の順カード「確定」(DBに書いたらロック)
     submitted: false,
@@ -1905,7 +1950,7 @@ function renderHands(){
    - 他プレイヤーの未公開カードは青塗り
    - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
    ========================= */
-function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName }){
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName, transformOverride }){
   if (!Array.isArray(ordered) || ordered.length !== 5) return null;
 
   const wrap = document.createElement('div');
@@ -1920,10 +1965,14 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
   }
   wrap.appendChild(roleEl);
 
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-  const dist = 70;
-  wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+  if (transformOverride){
+    wrap.style.transform = transformOverride;
+  } else {
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const dist = 70;
+    wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+  }
 
   const card = document.createElement('div');
   card.className = 'mini-order-card';
@@ -1994,6 +2043,119 @@ function injectMiniSlotBorder(slotEl){
   slotEl.appendChild(svg);
 }
 
+function getOrderOffsetTransform(angle, dist = 70){
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  return `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+}
+
+function ensureOrderToken(){
+  if (state.order.tokenEl) return state.order.tokenEl;
+  const token = document.createElement('div');
+  token.className = 'order-token';
+  token.textContent = '●';
+  token.addEventListener('pointerdown', handleOrderTokenPointerDown);
+  state.order.tokenEl = token;
+  return token;
+}
+
+function handleOrderTokenPointerDown(e){
+  const token = e.currentTarget;
+  if (!token) return;
+  e.preventDefault();
+  const rect = token.getBoundingClientRect();
+  state.order.tokenDragging = {
+    token,
+    offsetX: e.clientX - (rect.left + rect.width / 2),
+    offsetY: e.clientY - (rect.top + rect.height / 2),
+  };
+
+  token.classList.add('dragging');
+  token.style.transform = 'translate(-50%,-50%)';
+  document.body.appendChild(token);
+  updateOrderTokenDragPosition(e);
+
+  document.addEventListener('pointermove', handleOrderTokenPointerMove);
+  document.addEventListener('pointerup', handleOrderTokenPointerUp, { once:true });
+}
+
+function updateOrderTokenDragPosition(e){
+  const drag = state.order.tokenDragging;
+  if (!drag) return;
+  drag.token.style.left = `${e.clientX - drag.offsetX}px`;
+  drag.token.style.top = `${e.clientY - drag.offsetY}px`;
+}
+
+function handleOrderTokenPointerMove(e){
+  updateOrderTokenDragPosition(e);
+  const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.otherplayercircle') || null;
+  document.querySelectorAll('.otherplayercircle.active-drop').forEach(el => {
+    if (el !== target) el.classList.remove('active-drop');
+  });
+  if (target) target.classList.add('active-drop');
+}
+
+function handleOrderTokenPointerUp(e){
+  document.removeEventListener('pointermove', handleOrderTokenPointerMove);
+  const drag = state.order.tokenDragging;
+  if (!drag) return;
+
+  const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.otherplayercircle') || null;
+  document.querySelectorAll('.otherplayercircle.active-drop').forEach(el => el.classList.remove('active-drop'));
+
+  if (target){
+    state.order.tokenTargetId = target.dataset.playerId || null;
+    placeTokenInCircle(drag.token, target);
+  } else {
+    state.order.tokenTargetId = null;
+    placeTokenAtHome(drag.token);
+  }
+
+  drag.token.classList.remove('dragging');
+  drag.token.style.left = '';
+  drag.token.style.top = '';
+  drag.token.style.transform = '';
+  state.order.tokenDragging = null;
+}
+
+function placeTokenAtHome(tokenEl){
+  const homeWrap = document.querySelector('.mini-order-wrap.me');
+  if (!homeWrap) return;
+  tokenEl.style.left = '50%';
+  tokenEl.style.top = 'calc(100% + 18px)';
+  tokenEl.style.transform = 'translate(-50%, 0)';
+  homeWrap.appendChild(tokenEl);
+}
+
+function placeTokenInCircle(tokenEl, circleEl){
+  tokenEl.style.left = '';
+  tokenEl.style.top = '';
+  tokenEl.style.transform = '';
+  circleEl.appendChild(tokenEl);
+  layoutTokensInCircle(circleEl);
+}
+
+function layoutTokensInCircle(circleEl){
+  const tokens = Array.from(circleEl.querySelectorAll('.order-token'));
+  const roleEl = circleEl.querySelector('.mini-role-card');
+  if (!roleEl || tokens.length === 0) return;
+
+  const circleRect = circleEl.getBoundingClientRect();
+  const roleRect = roleEl.getBoundingClientRect();
+  const centerX = roleRect.left + roleRect.width / 2 - circleRect.left;
+  const centerY = roleRect.top + roleRect.height / 2 - circleRect.top;
+  const radius = tokens.length > 1 ? 14 : 0;
+
+  tokens.forEach((token, idx) => {
+    const angle = tokens.length > 1 ? (2 * Math.PI * idx) / tokens.length : 0;
+    const offsetX = radius * Math.cos(angle);
+    const offsetY = radius * Math.sin(angle);
+    token.style.left = `${centerX}px`;
+    token.style.top = `${centerY}px`;
+    token.style.transform = `translate(-50%,-50%) translate(${offsetX}px, ${offsetY}px)`;
+  });
+}
+
 function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
   if (!players.length) return;
@@ -2010,6 +2172,12 @@ function renderPlayerCircle(players){
   const phase = getRoomPhase();
   const inReveal = (phase === 'reveal');
   const revealIndex = getRevealIndex();
+  let tokenPlaced = false;
+  const hasMe = players.some(p => p.id === state.userId);
+
+  if (!inReveal && state.order.tokenEl?.parentElement){
+    state.order.tokenEl.parentElement.removeChild(state.order.tokenEl);
+  }
 
   players.forEach((p, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
@@ -2030,7 +2198,7 @@ function renderPlayerCircle(players){
 
     tag.onclick = (e) => {
       // ミニ順カードのクリックが座席奪取に波及しないように
-      if (e.target?.closest?.('.mini-order-wrap')) return;
+      if (e.target?.closest?.('.mini-order-wrap, .otherplayercircle, .order-token')) return;
 
       if (p.id === state.userId) return;
       if (!state.roomCode) return;
@@ -2074,33 +2242,90 @@ function renderPlayerCircle(players){
       }
     }
 
-// ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
-if (inReveal){
-  const isMe = (p.id === state.userId);
-  if (!isMe){
-    const ordered = state.orders?.[p.id]?.ordered;
+    // ★reveal に入ったら、ミニ順カードを表示
+    if (inReveal){
+      const isMe = (p.id === state.userId);
+      const ordered = state.orders?.[p.id]?.ordered;
+      const offsetTransform = getOrderOffsetTransform(angle, 70);
 
-    const mini = createMiniOrderOutsideTag({
-      ordered,
-      pid: p.id,
-      angle,
-      isMe,
-      isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-      revealIndex,
-      roleName: null
-    });
+      if (isMe){
+        const mini = createMiniOrderOutsideTag({
+          ordered,
+          pid: p.id,
+          angle,
+          isMe,
+          isHost: state.isHost,
+          revealIndex,
+          roleName: state.order.decidedKey,
+          transformOverride: offsetTransform
+        });
 
-    if (mini){
-      // ミニ順カードのクリックが親のonclickに波及しないように
-      mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
-      tag.appendChild(mini);
+        if (mini){
+          mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+          tag.appendChild(mini);
+
+          const token = ensureOrderToken();
+          if (state.order.tokenTargetId){
+            const targetCircle = document.querySelector(`.otherplayercircle[data-player-id="${state.order.tokenTargetId}"]`);
+            if (targetCircle){
+              placeTokenInCircle(token, targetCircle);
+              tokenPlaced = true;
+            }
+          }
+          if (!tokenPlaced){
+            placeTokenAtHome(token);
+            tokenPlaced = true;
+          }
+        }
+      } else {
+        const mini = createMiniOrderOutsideTag({
+          ordered,
+          pid: p.id,
+          angle,
+          isMe,
+          isHost: state.isHost,
+          revealIndex,
+          roleName: null,
+          transformOverride: 'translate(-50%,-50%)'
+        });
+
+        if (mini){
+          const circle = document.createElement('div');
+          circle.className = 'otherplayercircle';
+          circle.dataset.playerId = p.id;
+          circle.style.transform = offsetTransform;
+          circle.appendChild(mini);
+          circle.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+
+          tag.appendChild(circle);
+          if (state.order.tokenTargetId === p.id){
+            const token = ensureOrderToken();
+            placeTokenInCircle(token, circle);
+            tokenPlaced = true;
+          }
+        }
+      }
     }
-  }
-}
 
 
     playerCircle.appendChild(tag);
   });
+
+  if (inReveal && hasMe){
+    const token = ensureOrderToken();
+    if (!tokenPlaced){
+      if (state.order.tokenTargetId){
+        const targetCircle = playerCircle.querySelector(`.otherplayercircle[data-player-id="${state.order.tokenTargetId}"]`);
+        if (targetCircle){
+          placeTokenInCircle(token, targetCircle);
+          tokenPlaced = true;
+        }
+      }
+      if (!tokenPlaced){
+        placeTokenAtHome(token);
+      }
+    }
+  }
 }
 
 const urlParams = new URLSearchParams(window.location.search);
