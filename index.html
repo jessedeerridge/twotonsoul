@@ -2043,25 +2043,27 @@ function renderPlayerCircle(players){
       }
     }
 
-// ★reveal に入ったら、全員（自分も含む）ネームタグの外側にミニ順カードを表示
+// ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
 if (inReveal){
   const isMe = (p.id === state.userId);
-  const ordered = state.orders?.[p.id]?.ordered;
+  if (!isMe){
+    const ordered = state.orders?.[p.id]?.ordered;
 
-  const mini = createMiniOrderOutsideTag({
-    ordered,
-    pid: p.id,
-    angle,
-    isMe,
-    isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-    revealIndex,
-    roleName: isMe ? state.hands?.[p.id]?.role : null
-  });
+    const mini = createMiniOrderOutsideTag({
+      ordered,
+      pid: p.id,
+      angle,
+      isMe,
+      isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
+      revealIndex,
+      roleName: null
+    });
 
-  if (mini){
-    // ミニ順カードのクリックが親のonclickに波及しないように
-    mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
-    tag.appendChild(mini);
+    if (mini){
+      // ミニ順カードのクリックが親のonclickに波及しないように
+      mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+      tag.appendChild(mini);
+    }
   }
 }
 
