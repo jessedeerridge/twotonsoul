@@ -114,11 +114,11 @@
   .mini-order-wrap{
     position:absolute;
     left:50%;
-    top:50%;
+    top:100%;
     display:flex;
     align-items:center;
     gap:0;
-    transform:translate(-50%,-50%);
+    transform:translate(-50%,8px);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
@@ -2100,10 +2100,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
   roleEl.appendChild(roleChipStack);
   wrap.appendChild(roleEl);
 
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-  const dist = 0;
-  wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+  wrap.style.transform = `translate(-50%,8px)`;
 
   const card = document.createElement('div');
   card.className = 'mini-order-card';
