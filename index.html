@@ -117,7 +117,7 @@
     top:50%;
     display:flex;
     align-items:center;
-    gap:4px;
+    gap:0;
     transform:translate(-50%,-50%);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
@@ -148,6 +148,7 @@
 
 /* ▼このブロック内の overflow を変更 */
   .mini-order-card{
+    margin-left:-12px;
     width:86px;
     height:104px;
   border-radius:14px;
@@ -383,7 +384,11 @@
   .order-stack-row{
     display:flex;
     align-items:center;
-    gap:var(--role-order-gap, 4px);
+    gap:0;
+  }
+  .order-stack-row .order-card-small,
+  .order-stack-row .order-card-placeholder{
+    margin-left:-12px;
   }
   .order-card-small{position:relative; z-index:2;}
   .order-card-placeholder{
