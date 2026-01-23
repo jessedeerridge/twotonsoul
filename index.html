@@ -448,7 +448,7 @@
   }
   .order-stack-row .order-card-small,
   .order-stack-row .order-card-placeholder{
-    margin-left:-28px;
+    margin-left:-40px;
   }
   .order-card-small{position:relative; z-index:1;}
   .order-card-placeholder{
@@ -471,8 +471,8 @@
     left:50%;
     top:50%;
 
-    /* 順カード(幅260)の左側へ：中心から-120pxずらす（重なりを強める） */
-    transform:translate(-50%,-50%) translateX(-120px);
+    /* 順カード(幅260)の左側へ：中心から-90pxずらす（重なりを強める） */
+    transform:translate(-50%,-50%) translateX(-90px);
 
     z-index:26;
     pointer-events:none;
@@ -1224,7 +1224,9 @@ async function onChipDragEnd(e){
   window.removeEventListener('pointercancel', onChipDragEnd);
   state.chipDrag = null;
 
-  if (targetId && targetId !== dragState.startTargetId){
+  if (!targetId){
+    await setChipTarget(dragState.ownerId, null);
+  } else if (targetId !== dragState.startTargetId){
     await setChipTarget(dragState.ownerId, targetId);
   }
 }
@@ -1940,7 +1942,7 @@ function renderMyHand(){
     }
   }
 
-  if (!isOrderBigVisible && !isRevealPhase){
+  if (!isOrderBigVisible){
     const orderStack = document.createElement('div');
     orderStack.className = 'hand-block order-stack order-stack-row';
 
@@ -1951,12 +1953,14 @@ function renderMyHand(){
 
     orderStack.appendChild(roleClone);
 
-    if (orderSmallCard){
-      orderStack.appendChild(orderSmallCard);
-    } else if (!phaseDraft) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'order-card-placeholder';
-      orderStack.appendChild(placeholder);
+    if (!isRevealPhase){
+      if (orderSmallCard){
+        orderStack.appendChild(orderSmallCard);
+      } else if (!phaseDraft) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'order-card-placeholder';
+        orderStack.appendChild(placeholder);
+      }
     }
 
     handArea.appendChild(orderStack);
