@@ -140,7 +140,7 @@
     padding:6px;
     box-sizing:border-box;
     pointer-events:none;
-    z-index:1;
+    z-index:2;
   }
   .mini-role-card.front{
     background:#fff;
@@ -148,7 +148,7 @@
 
 /* ▼このブロック内の overflow を変更 */
   .mini-order-card{
-    margin-left:-12px;
+    margin-left:-16px;
     width:86px;
     height:104px;
   border-radius:14px;
@@ -158,6 +158,7 @@
     position:relative;
     overflow:visible; /* ★ここ：hidden → visible */
     pointer-events:auto;
+    z-index:1;
   }
 
 
@@ -379,6 +380,7 @@
     user-select:none;
     position:relative;
     box-sizing:border-box;
+    z-index:2;
   }
 
   .order-stack-row{
@@ -388,15 +390,16 @@
   }
   .order-stack-row .order-card-small,
   .order-stack-row .order-card-placeholder{
-    margin-left:-12px;
+    margin-left:-16px;
   }
-  .order-card-small{position:relative; z-index:2;}
+  .order-card-small{position:relative; z-index:1;}
   .order-card-placeholder{
     width:86px;
     height:104px;
     border-radius:14px;
     border:1px solid transparent;
     visibility:hidden;
+    z-index:1;
   }
 
   /* ★①：順カード拡大時：正体カードを「順カードの左で重ねる」 */
