@@ -1687,48 +1687,46 @@ function renderMyHand(){
   const isRevealPhase = (phase === 'reveal');
 
   let orderSmallCard = null;
-  if (!isRevealPhase){
-    // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
-    if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-      orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
-    } else if (isOrderSmallVisible){
-      // 従来通り（未確定の編集用）
-      orderSmallCard = document.createElement('div');
-      orderSmallCard.className = 'order-card-small';
-      orderSmallCard.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
+  // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
+  if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
+    orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
+  } else if (isOrderSmallVisible){
+    // 従来通り（未確定の編集用）
+    orderSmallCard = document.createElement('div');
+    orderSmallCard.className = 'order-card-small';
+    orderSmallCard.title = canEditOrder() ? 'クリックで拡大して並び替え' : '確定済み';
 
-      const col = document.createElement('div');
-      col.className = 'order-slot-col small';
+    const col = document.createElement('div');
+    col.className = 'order-slot-col small';
 
-      for(let i=0;i<5;i++){
-        const slot = document.createElement('div');
-        slot.className = 'order-slot small';
-        injectSlotBorder(slot);
+    for(let i=0;i<5;i++){
+      const slot = document.createElement('div');
+      slot.className = 'order-slot small';
+      injectSlotBorder(slot);
 
-        const cid = state.order.slots[i];
-        if (cid){
-          const chip = document.createElement('div');
-          chip.className = 'order-in-slot small';
-          chip.textContent = cardTextById(cid);
-          slot.appendChild(chip);
-        }
-        col.appendChild(slot);
+      const cid = state.order.slots[i];
+      if (cid){
+        const chip = document.createElement('div');
+        chip.className = 'order-in-slot small';
+        chip.textContent = cardTextById(cid);
+        slot.appendChild(chip);
       }
-      orderSmallCard.appendChild(col);
+      col.appendChild(slot);
+    }
+    orderSmallCard.appendChild(col);
 
-      if (canEditOrder()){
-        orderSmallCard.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showOrderBig();
-          renderMyHand();
-        });
-      } else {
-        orderSmallCard.style.cursor = 'default';
-      }
+    if (canEditOrder()){
+      orderSmallCard.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showOrderBig();
+        renderMyHand();
+      });
+    } else {
+      orderSmallCard.style.cursor = 'default';
     }
   }
 
-  if (!isOrderBigVisible && !(isRevealPhase && state.order.completed)){
+  if (!isOrderBigVisible){
     const orderStack = document.createElement('div');
     orderStack.className = 'hand-block order-stack order-stack-row';
 
@@ -1740,7 +1738,7 @@ function renderMyHand(){
 
     if (orderSmallCard){
       orderStack.appendChild(orderSmallCard);
-    } else {
+    } else if (!phaseDraft) {
       const placeholder = document.createElement('div');
       placeholder.className = 'order-card-placeholder';
       orderStack.appendChild(placeholder);
@@ -2045,25 +2043,27 @@ function renderPlayerCircle(players){
       }
     }
 
-// ★reveal に入ったら、全員（自分も含む）ネームタグの外側にミニ順カードを表示
+// ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
 if (inReveal){
   const isMe = (p.id === state.userId);
-  const ordered = state.orders?.[p.id]?.ordered;
+  if (!isMe){
+    const ordered = state.orders?.[p.id]?.ordered;
 
-  const mini = createMiniOrderOutsideTag({
-    ordered,
-    pid: p.id,
-    angle,
-    isMe,
-    isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-    revealIndex,
-    roleName: isMe ? state.hands?.[p.id]?.role : null
-  });
+    const mini = createMiniOrderOutsideTag({
+      ordered,
+      pid: p.id,
+      angle,
+      isMe,
+      isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
+      revealIndex,
+      roleName: null
+    });
 
-  if (mini){
-    // ミニ順カードのクリックが親のonclickに波及しないように
-    mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
-    tag.appendChild(mini);
+    if (mini){
+      // ミニ順カードのクリックが親のonclickに波及しないように
+      mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+      tag.appendChild(mini);
+    }
   }
 }
 
