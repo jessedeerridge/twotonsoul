@@ -228,12 +228,7 @@
 
 
   .mini-order-card::after{
-    content:'順';
-    position:absolute;
-    right:8px; top:6px;
-    font-weight:900;
-    font-size:12px;
-    opacity:.55;
+    content:'';
   }
   .mini-order-col{
     position:absolute;
@@ -592,24 +587,11 @@
     user-select:none;
   }
   .order-card-big::after{
-    content:'順カード';
-    position:absolute;
-    right:10px; top:10px;
-    font-weight:900;
-    font-size:14px;
-    opacity:.55;
-    letter-spacing:.08em;
+    content:'';
   }
 
   .order-hint{
-    position:absolute;
-    left:12px; right:12px;
-    bottom:10px;
-    font-size:12px;
-    opacity:.65;
-    line-height:1.35;
-    text-align:center;
-    pointer-events:none;
+    display:none;
   }
 
   .order-slot-col{
@@ -719,12 +701,7 @@
     user-select:none;
   }
   .order-card-small::after{
-    content:'順';
-    position:absolute;
-    right:8px; top:6px;
-    font-weight:900;
-    font-size:12px;
-    opacity:.55;
+    content:'';
   }
 
   .order-slot-col.small{
@@ -1949,7 +1926,7 @@ function renderMyHand(){
     }
   }
 
-  if (!isOrderBigVisible){
+  if (!isOrderBigVisible && !isRevealPhase){
     const orderStack = document.createElement('div');
     orderStack.className = 'hand-block order-stack order-stack-row';
 
@@ -1959,14 +1936,12 @@ function renderMyHand(){
 
     orderStack.appendChild(roleClone);
 
-    if (!isRevealPhase){
-      if (orderSmallCard){
-        orderStack.appendChild(orderSmallCard);
-      } else if (!phaseDraft) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'order-card-placeholder';
-        orderStack.appendChild(placeholder);
-      }
+    if (orderSmallCard){
+      orderStack.appendChild(orderSmallCard);
+    } else if (!phaseDraft) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'order-card-placeholder';
+      orderStack.appendChild(placeholder);
     }
 
     handArea.appendChild(orderStack);
@@ -2127,7 +2102,7 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
 
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
-  const dist = 70;
+  const dist = 0;
   wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
 
   const card = document.createElement('div');
