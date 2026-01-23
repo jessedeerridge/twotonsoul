@@ -2312,8 +2312,11 @@ if (inReveal){
   });
 
   if (mini){
-    // ミニ順カードのクリックが親のonclickに波及しないように
-    mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
+    // ミニ順カードのクリックが親のonclickに波及しないように（チップ操作は許可）
+    mini.addEventListener('pointerdown', (e) => {
+      if (e.target?.closest?.('.player-chip')) return;
+      e.stopPropagation();
+    }, { capture:true });
     tag.appendChild(mini);
   }
 }
