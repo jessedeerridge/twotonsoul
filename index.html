@@ -702,6 +702,14 @@
     box-shadow:0 6px 14px rgba(124,58,237,.25);
     padding:0 3px;
   }
+  .order-in-slot.open-btn{
+    cursor:pointer;
+    color:#fff;
+    background:#7c3aed;
+    border-color:#7c3aed;
+    box-shadow:0 8px 18px rgba(124,58,237,.35);
+  }
+  .order-in-slot.open-btn:active{ transform:translateY(-50%) scale(.98); }
 
   .hand-block.decided.drop-over{
     outline:2px dashed rgba(255,165,0,.65);
@@ -1588,7 +1596,7 @@ document.addEventListener('pointerdown', (e) => {
 /* =========================
    ★小さい順カードを「テキスト配列」から生成（確定済み表示にも使う）
    ========================= */
-function buildOrderSmallCardFromTexts(texts, { clickable }){
+function buildOrderSmallCardFromTexts(texts, { clickable, revealIndex = null, enableRevealTrigger = false }){
   const small = document.createElement('div');
   small.className = 'order-card-small';
   small.title = clickable ? 'クリックで拡大（並び替え）' : '確定済み';
@@ -1606,6 +1614,14 @@ function buildOrderSmallCardFromTexts(texts, { clickable }){
       const chip = document.createElement('div');
       chip.className = 'order-in-slot small';
       chip.textContent = String(t);
+      if (enableRevealTrigger && Number.isInteger(revealIndex) && i === revealIndex){
+        chip.classList.add('open-btn');
+        chip.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          await hostRevealNext();
+        }, { passive:false });
+      }
       slot.appendChild(chip);
     }
     col.appendChild(slot);
@@ -1614,6 +1630,7 @@ function buildOrderSmallCardFromTexts(texts, { clickable }){
 
   if (clickable){
     small.addEventListener('click', (e) => {
+      if (e.target?.closest?.('.order-in-slot')) return;
       e.stopPropagation();
       showOrderBig();
       renderMyHand();
@@ -1648,6 +1665,9 @@ function renderMyHand(){
   const phaseDraft = !!state.draft && state.draft.phase === 'draft';
   const draftDone  = !!state.draft && state.draft.phase === 'done';
   const status = state.draft?.status || null;
+  const phase = getRoomPhase();
+  const isRevealPhase = (phase === 'reveal');
+  const revealIndex = getRevealIndex();
 
   const decided = Array.isArray(h.decided) ? h.decided : [];
   const pool = Array.isArray(h.pool) ? h.pool : (Array.isArray(h.cards) ? h.cards : []);
@@ -1683,13 +1703,15 @@ function renderMyHand(){
   }
 
  let orderSmallBlock = null;
-  const phase = getRoomPhase();
-  const isRevealPhase = (phase === 'reveal');
-
   let orderSmallCard = null;
+  const enableHostRevealTrigger = state.isHost && isRevealPhase && Number.isInteger(revealIndex) && revealIndex < 5;
   // ★orderフェーズで「確定済み」なら、DBの並びで小カードを出す
   if (allowOrderSmall && draftDone && getRoomPhase() === 'order' && state.order.submitted && Array.isArray(state.order.submittedOrder)){
-    orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, { clickable: canEditOrder() });
+    orderSmallCard = buildOrderSmallCardFromTexts(state.order.submittedOrder, {
+      clickable: canEditOrder(),
+      revealIndex,
+      enableRevealTrigger: enableHostRevealTrigger
+    });
   } else if (isOrderSmallVisible){
     // 従来通り（未確定の編集用）
     orderSmallCard = document.createElement('div');
@@ -1709,6 +1731,14 @@ function renderMyHand(){
         const chip = document.createElement('div');
         chip.className = 'order-in-slot small';
         chip.textContent = cardTextById(cid);
+        if (enableHostRevealTrigger && i === revealIndex){
+          chip.classList.add('open-btn');
+          chip.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await hostRevealNext();
+          }, { passive:false });
+        }
         slot.appendChild(chip);
       }
       col.appendChild(slot);
@@ -1717,6 +1747,7 @@ function renderMyHand(){
 
     if (canEditOrder()){
       orderSmallCard.addEventListener('click', (e) => {
+        if (e.target?.closest?.('.order-in-slot')) return;
         e.stopPropagation();
         showOrderBig();
         renderMyHand();
@@ -2043,12 +2074,11 @@ function renderPlayerCircle(players){
       }
     }
 
-// ★reveal に入ったら、他人 + ホスト本人のネームタグ外側にミニ順カードを表示
+// ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
 if (inReveal){
   const isMe = (p.id === state.userId);
-  if (!isMe || state.isHost){
+  if (!isMe){
     const ordered = state.orders?.[p.id]?.ordered;
-    const roleName = isMe ? (state.hands?.[p.id]?.role || null) : null;
 
     const mini = createMiniOrderOutsideTag({
       ordered,
@@ -2057,7 +2087,7 @@ if (inReveal){
       isMe,
       isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
       revealIndex,
-      roleName
+      roleName: null
     });
 
     if (mini){
