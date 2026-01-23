@@ -117,7 +117,7 @@
     top:50%;
     display:flex;
     align-items:center;
-    gap:6px;
+    gap:4px;
     transform:translate(-50%,-50%);
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
@@ -383,7 +383,7 @@
   .order-stack-row{
     display:flex;
     align-items:center;
-    gap:var(--role-order-gap, 6px);
+    gap:var(--role-order-gap, 4px);
   }
   .order-card-small{position:relative; z-index:2;}
   .order-card-placeholder{
@@ -1720,7 +1720,7 @@ function renderMyHand(){
     }
   }
 
-  if (!isOrderBigVisible){
+  if (!isOrderBigVisible && !(isRevealPhase && state.order.completed)){
     const orderStack = document.createElement('div');
     orderStack.className = 'hand-block order-stack order-stack-row';
 
