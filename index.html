@@ -62,8 +62,21 @@
     position:relative;width:260px;height:260px;
     margin:20px auto 0;border-radius:50%;
     box-sizing:border-box;border:none;
+    overflow:visible;
   }
   .player-circle::before{content:'';}
+  .otherplayer-circle{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:360px;
+    height:360px;
+    border-radius:50%;
+    border:2px solid rgba(17,17,17,.18);
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    z-index:0;
+  }
   .player-tag{
     position:absolute;transform:translate(-50%,-50%);
     padding:4px 8px;border-radius:999px;background:#f8f8f8;
@@ -296,6 +309,20 @@
   .hand-block.roles{padding:4px 4px;border-radius:10px;}
   .hand-block.front{z-index:6;}
   .hand-block.order-stack{z-index:1;}
+  .order-card-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+  .order-token{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #fde68a, #f59e0b);
+    border:1px solid rgba(0,0,0,.2);
+    box-shadow:0 4px 10px rgba(0,0,0,.2);
+  }
 
   .hand-overlay{
     position:fixed;
@@ -1054,6 +1081,22 @@ function canEditOrder(){
   const phase = getRoomPhase();
   return phase === 'order' || phase === 'reveal';
 }
+function hasTokenFor(pid){
+  if (!pid) return false;
+  const room = state.room || {};
+  if (Array.isArray(room.tokenHolders)) return room.tokenHolders.includes(pid);
+  if (Array.isArray(room.tokens)) return room.tokens.includes(pid);
+  if (room.tokenHolderId) return room.tokenHolderId === pid;
+  if (room.tokenHolder) return room.tokenHolder === pid;
+  if (room.tokens && typeof room.tokens === 'object') return !!room.tokens[pid];
+  return false;
+}
+function createOrderToken(){
+  const token = document.createElement('div');
+  token.className = 'order-token';
+  token.setAttribute('aria-label', 'トークン所持');
+  return token;
+}
 
 /* =========================
    ★順カード確定（自分）をDBへ
@@ -1768,7 +1811,11 @@ function renderMyHand(){
     orderStack.appendChild(roleClone);
 
     if (orderSmallCard){
-      orderStack.appendChild(orderSmallCard);
+      const orderWrap = document.createElement('div');
+      orderWrap.className = 'order-card-wrap';
+      orderWrap.appendChild(orderSmallCard);
+      if (hasTokenFor(myId)) orderWrap.appendChild(createOrderToken());
+      orderStack.appendChild(orderWrap);
     } else if (!phaseDraft) {
       const placeholder = document.createElement('div');
       placeholder.className = 'order-card-placeholder';
@@ -1905,7 +1952,7 @@ function renderHands(){
    - 他プレイヤーの未公開カードは青塗り
    - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
    ========================= */
-function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName }){
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName, showToken }){
   if (!Array.isArray(ordered) || ordered.length !== 5) return null;
 
   const wrap = document.createElement('div');
@@ -1975,7 +2022,11 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
       renderMyHand();
     });
   }
-  wrap.appendChild(card);
+  const cardWrap = document.createElement('div');
+  cardWrap.className = 'order-card-wrap';
+  cardWrap.appendChild(card);
+  if (showToken) cardWrap.appendChild(createOrderToken());
+  wrap.appendChild(cardWrap);
   return wrap;
 }
 
@@ -2010,6 +2061,13 @@ function renderPlayerCircle(players){
   const phase = getRoomPhase();
   const inReveal = (phase === 'reveal');
   const revealIndex = getRevealIndex();
+  const allOrdersSubmitted = players.every(p => hasSubmittedOrderFor(p.id));
+
+  if (allOrdersSubmitted){
+    const otherCircle = document.createElement('div');
+    otherCircle.className = 'otherplayer-circle';
+    playerCircle.appendChild(otherCircle);
+  }
 
   players.forEach((p, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
@@ -2075,22 +2133,23 @@ function renderPlayerCircle(players){
     }
 
 // ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
-if (inReveal){
-  const isMe = (p.id === state.userId);
-  if (!isMe){
-    const ordered = state.orders?.[p.id]?.ordered;
+    if (inReveal){
+      const isMe = (p.id === state.userId);
+      if (!isMe){
+        const ordered = state.orders?.[p.id]?.ordered;
 
-    const mini = createMiniOrderOutsideTag({
-      ordered,
-      pid: p.id,
-      angle,
-      isMe,
-      isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-      revealIndex,
-      roleName: null
-    });
+        const mini = createMiniOrderOutsideTag({
+          ordered,
+          pid: p.id,
+          angle,
+          isMe,
+          isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
+          revealIndex,
+          roleName: null,
+          showToken: hasTokenFor(p.id)
+        });
 
-    if (mini){
+        if (mini){
       // ミニ順カードのクリックが親のonclickに波及しないように
       mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
       tag.appendChild(mini);
