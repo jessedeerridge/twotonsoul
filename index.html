@@ -1885,6 +1885,8 @@ function renderMyHand(){
   if (isOrderBigVisible){
     roleCard.classList.add('role-float');
     document.body.appendChild(roleCard);
+  } else {
+    roleCard.classList.remove('role-float');
   }
 
  let orderSmallBlock = null;
@@ -1946,12 +1948,7 @@ function renderMyHand(){
     const orderStack = document.createElement('div');
     orderStack.className = 'hand-block order-stack order-stack-row';
 
-    const roleClone = document.createElement('div');
-    roleClone.className = 'role-card-big';
-    roleClone.textContent = roleText;
-    attachRoleExpand(roleClone);
-
-    orderStack.appendChild(roleClone);
+    orderStack.appendChild(roleCard);
 
     if (!isRevealPhase){
       if (orderSmallCard){
