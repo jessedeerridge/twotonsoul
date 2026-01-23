@@ -985,10 +985,34 @@ function injectSlotBorder(slotEl){
 }
 
 /* =========================
-   ★重要：bodyに残った「中央固定の正体カード」を毎回掃除
+   ★正体カードは必ず「1枚だけ」使い回す
    ========================= */
-function cleanupFloatingRole(){
-  document.querySelectorAll('.role-float').forEach(el => el.remove());
+let roleCardSingleton = null;
+function getRoleCardElement(){
+  if (!roleCardSingleton){
+    const roleEl = document.createElement('div');
+    roleEl.className = 'role-card-big';
+    roleEl.addEventListener('click', (e) => {
+      if (!canEditOrder()) return;
+      if (!state.order.completed) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showOrderBig();
+      renderMyHand();
+    });
+    roleCardSingleton = roleEl;
+  }
+  return roleCardSingleton;
+}
+function updateRoleCardInteractivity(roleEl){
+  const canOpen = canEditOrder() && state.order.completed;
+  roleEl.style.cursor = canOpen ? 'pointer' : 'default';
+}
+function cleanupRoleCardArtifacts(){
+  const keep = roleCardSingleton;
+  document.querySelectorAll('.role-card-big').forEach((el) => {
+    if (!keep || el !== keep) el.remove();
+  });
 }
 
 /* =========================
@@ -1029,15 +1053,7 @@ helpBackdrop.addEventListener('click', (e) => { if (e.target === helpBackdrop) c
 
 function attachRoleExpand(roleEl){
   if (!roleEl) return;
-  if (!canEditOrder()) return;
-  if (!state.order.completed) return;
-  roleEl.style.cursor = 'pointer';
-  roleEl.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    showOrderBig();
-    renderMyHand();
-  });
+  updateRoleCardInteractivity(roleEl);
 }
 
 let pendingSeatIndexToSteal = null;
@@ -1556,7 +1572,10 @@ function showOrderBig(){
 function hideOrderBig(){
   orderBigWrap.classList.add('hidden');
   setOrderOpen(false);
-  cleanupFloatingRole();
+  if (roleCardSingleton){
+    roleCardSingleton.classList.remove('role-float');
+  }
+  cleanupRoleCardArtifacts();
 }
 function toggleOrderBig(){
   if (!state.order.completed) return;
@@ -1827,7 +1846,7 @@ function buildOrderSmallCardFromTexts(texts, { clickable, revealIndex = null, en
 }
 
 function renderMyHand(){
-  cleanupFloatingRole();
+  cleanupRoleCardArtifacts();
 
   myHandEl.innerHTML = '';
   const myId = state.userId;
@@ -1869,14 +1888,12 @@ function renderMyHand(){
      - 順カード拡大中：画面中央の順カードの「左で重ねる」（role-float）
      - 通常時：順カード小/未配置を問わず一定間隔の横並び
      ========================= */
-  const roleCard = document.createElement('div');
-  roleCard.className = 'role-card-big';
+  const roleCard = getRoleCardElement();
   roleCard.textContent = h.role ? h.role : '（役職なし）';
   attachRoleExpand(roleCard);
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
   const allowOrderSmall = !isOrderBigVisible;
-  const roleText = h.role ? h.role : '（役職なし）';
 
   // 「小さい順カード」が表示される条件
   const isOrderSmallVisible =
@@ -1884,7 +1901,9 @@ function renderMyHand(){
 
   if (isOrderBigVisible){
     roleCard.classList.add('role-float');
-    document.body.appendChild(roleCard);
+    if (roleCard.parentElement !== document.body){
+      document.body.appendChild(roleCard);
+    }
   } else {
     roleCard.classList.remove('role-float');
   }
