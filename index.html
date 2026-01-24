@@ -9,6 +9,10 @@
 <style>
   html, body{height:100%; overflow:hidden;}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#111;}
+  :root{
+    --role-card-w: 64px;
+    --role-card-h: 90px;
+  }
   header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:10; background:#fff;}
   h1{margin:0;font-size:18px;}
   .small{font-size:12px;opacity:.75;}
@@ -122,10 +126,27 @@
     pointer-events:auto; /* ミニ順カード全体でクリック判定 */
     z-index:1;
   }
+  .circleforchip{
+    position:relative;
+    width:130px;
+    height:130px;
+    border-radius:50%;
+    border:2px dashed rgba(124,58,237,.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-left:-16px;
+    box-sizing:border-box;
+    transition:border-color .2s ease, box-shadow .2s ease;
+  }
+  .circleforchip.over{
+    border-color:rgba(255,165,0,.9);
+    box-shadow:0 0 0 4px rgba(255,165,0,.2);
+  }
   .mini-role-card{
     position:relative;
-    width:64px;
-    height:90px;
+    width:var(--role-card-w);
+    height:var(--role-card-h);
     border-radius:10px;
     border:1px solid #7c3aed;
     background:#7c3aed;
@@ -139,7 +160,7 @@
     text-align:center;
     padding:6px;
     box-sizing:border-box;
-    pointer-events:none;
+    pointer-events:auto;
     z-index:2;
   }
   .mini-role-card.front{
@@ -148,7 +169,6 @@
 
 /* ▼このブロック内の overflow を変更 */
   .mini-order-card{
-    margin-left:-16px;
     width:86px;
     height:104px;
   border-radius:14px;
@@ -160,17 +180,59 @@
     pointer-events:auto;
     z-index:1;
   }
+  .chip-tray{
+    position:absolute;
+    left:50%;
+    top:100%;
+    transform:translate(-50%,8px);
+    display:flex;
+    gap:6px;
+    align-items:center;
+    justify-content:center;
+    min-width:64px;
+    pointer-events:auto;
+  }
+  .player-chip{
+    width:24px;
+    height:24px;
+    border-radius:999px;
+    border:2px solid #111;
+    background:#fff;
+    color:#111;
+    font-weight:900;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 6px 14px rgba(0,0,0,.18);
+    user-select:none;
+    cursor:grab;
+    pointer-events:auto;
+  }
+  .player-chip.dragging{
+    opacity:.35;
+  }
+  .player-chip:active{
+    cursor:grabbing;
+  }
+  .role-chip-stack{
+    position:absolute;
+    left:50%;
+    bottom:6px;
+    transform:translateX(-50%);
+    display:flex;
+    gap:4px;
+    flex-wrap:wrap;
+    justify-content:center;
+    width:90%;
+    pointer-events:auto;
+  }
 
 
 
 
   .mini-order-card::after{
-    content:'順';
-    position:absolute;
-    right:8px; top:6px;
-    font-weight:900;
-    font-size:12px;
-    opacity:.55;
+    content:'';
   }
   .mini-order-col{
     position:absolute;
@@ -370,7 +432,7 @@
   }
 
   .role-card-big{
-    width:64px;height:90px;border-radius:10px;border:1px solid #ddd;
+    width:var(--role-card-w);height:var(--role-card-h);border-radius:10px;border:1px solid #ddd;
     background:linear-gradient(135deg,#f8fafc,#eef2ff);
     box-shadow:0 6px 16px rgba(0,0,0,.12);
     display:flex;align-items:center;justify-content:center;
@@ -382,15 +444,28 @@
     box-sizing:border-box;
     z-index:2;
   }
+  .role-card-spacer{
+    width:var(--role-card-w);
+    height:var(--role-card-h);
+    border-radius:10px;
+    visibility:hidden;
+    pointer-events:none;
+  }
 
   .order-stack-row{
     display:flex;
     align-items:center;
     gap:0;
   }
+  .order-stack-slot{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
   .order-stack-row .order-card-small,
   .order-stack-row .order-card-placeholder{
-    margin-left:-16px;
+    margin-left:-40px;
   }
   .order-card-small{position:relative; z-index:1;}
   .order-card-placeholder{
@@ -413,8 +488,8 @@
     left:50%;
     top:50%;
 
-    /* 順カード(幅260)の左側へ：中心から-154pxずらす（左で重ねる） */
-    transform:translate(-50%,-50%) translateX(-154px);
+    /* 順カード(幅260)の左側へ：中心から-90pxずらす（重なりを強める） */
+    transform:translate(-50%,-50%) translateX(-90px);
 
     z-index:26;
     pointer-events:none;
@@ -529,24 +604,11 @@
     user-select:none;
   }
   .order-card-big::after{
-    content:'順カード';
-    position:absolute;
-    right:10px; top:10px;
-    font-weight:900;
-    font-size:14px;
-    opacity:.55;
-    letter-spacing:.08em;
+    content:'';
   }
 
   .order-hint{
-    position:absolute;
-    left:12px; right:12px;
-    bottom:10px;
-    font-size:12px;
-    opacity:.65;
-    line-height:1.35;
-    text-align:center;
-    pointer-events:none;
+    display:none;
   }
 
   .order-slot-col{
@@ -656,12 +718,7 @@
     user-select:none;
   }
   .order-card-small::after{
-    content:'順';
-    position:absolute;
-    right:8px; top:6px;
-    font-weight:900;
-    font-size:12px;
-    opacity:.55;
+    content:'';
   }
 
   .order-slot-col.small{
@@ -855,6 +912,7 @@ const state = {
 
   // ★追加：順カード確定内容（全員分）
   orders: {},
+  chips: {},
 
   _lastIncomingToken: null,
   _lastPassToken: null,
@@ -871,7 +929,8 @@ const state = {
     // ★追加：自分の順カード「確定」(DBに書いたらロック)
     submitted: false,
     submittedOrder: null,
-  }
+  },
+  chipDrag: null
 };
 
 const mainEl = document.getElementById('main');
@@ -943,10 +1002,34 @@ function injectSlotBorder(slotEl){
 }
 
 /* =========================
-   ★重要：bodyに残った「中央固定の正体カード」を毎回掃除
+   ★正体カードは必ず「1枚だけ」使い回す
    ========================= */
-function cleanupFloatingRole(){
-  document.querySelectorAll('.role-float').forEach(el => el.remove());
+let roleCardSingleton = null;
+function getRoleCardElement(){
+  if (!roleCardSingleton){
+    const roleEl = document.createElement('div');
+    roleEl.className = 'role-card-big';
+    roleEl.addEventListener('click', (e) => {
+      if (!canEditOrder()) return;
+      if (!state.order.completed) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showOrderBig();
+      renderMyHand();
+    });
+    roleCardSingleton = roleEl;
+  }
+  return roleCardSingleton;
+}
+function updateRoleCardInteractivity(roleEl){
+  const canOpen = canEditOrder() && state.order.completed;
+  roleEl.style.cursor = canOpen ? 'pointer' : 'default';
+}
+function cleanupRoleCardArtifacts(){
+  const keep = roleCardSingleton;
+  document.querySelectorAll('.role-card-big').forEach((el) => {
+    if (!keep || el !== keep) el.remove();
+  });
 }
 
 /* =========================
@@ -956,6 +1039,12 @@ function cleanupOrderSmallArtifacts(){
   document.querySelectorAll('.order-card-small, .order-slot-col.small').forEach(el=>{
     el.remove?.();
   });
+}
+
+function createRoleCardSpacer(){
+  const spacer = document.createElement('div');
+  spacer.className = 'role-card-spacer';
+  return spacer;
 }
 
 function renderHelpList(){
@@ -984,6 +1073,11 @@ function closeHelp(){ helpBackdrop.classList.add('hidden'); }
 helpBtn.addEventListener('click', () => { if (joinBox.classList.contains('hidden')) openHelp(); });
 btnHelpClose.addEventListener('click', closeHelp);
 helpBackdrop.addEventListener('click', (e) => { if (e.target === helpBackdrop) closeHelp(); });
+
+function attachRoleExpand(roleEl){
+  if (!roleEl) return;
+  updateRoleCardInteractivity(roleEl);
+}
 
 let pendingSeatIndexToSteal = null;
 let pendingSeatPlayerIdToSteal = null;
@@ -1053,6 +1147,127 @@ function getRevealIndex(){
 function canEditOrder(){
   const phase = getRoomPhase();
   return phase === 'order' || phase === 'reveal';
+}
+
+function getChipTargetId(ownerId){
+  const entry = state.chips?.[ownerId];
+  return entry?.targetId || null;
+}
+
+function getChipLabel(name){
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '●';
+  return trimmed.slice(0, 2);
+}
+
+function createPlayerChip({ ownerId, ownerName, draggable }){
+  const chip = document.createElement('div');
+  chip.className = 'player-chip';
+  chip.dataset.ownerId = ownerId;
+  chip.textContent = getChipLabel(ownerName);
+  chip.title = ownerName || '';
+  if (draggable){
+    chip.addEventListener('pointerdown', (e) => {
+      if (!canDragChip(ownerId)) return;
+      if (e.button !== 0 && e.pointerType !== 'touch') return;
+      e.preventDefault();
+      e.stopPropagation();
+      startChipDrag(e, { ownerId, sourceEl: chip });
+    });
+  } else {
+    chip.style.cursor = 'default';
+  }
+  return chip;
+}
+
+function canDragChip(ownerId){
+  return ownerId === state.userId && getRoomPhase() === 'reveal';
+}
+
+async function setChipTarget(ownerId, targetId){
+  if (!state.roomCode) return;
+  const normalizedTarget = targetId || null;
+  if ((getChipTargetId(ownerId) || null) === normalizedTarget) return;
+  await set(ref(db, `rooms/${state.roomCode}/chips/${ownerId}`), {
+    targetId: normalizedTarget,
+    updatedAt: Date.now(),
+    ownerName: state.userName || ''
+  });
+}
+
+function startChipDrag(e, { ownerId, sourceEl }){
+  if (state.chipDrag) return;
+  const rect = sourceEl.getBoundingClientRect();
+  const ghost = sourceEl.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  ghost.style.left = `${e.clientX}px`;
+  ghost.style.top = `${e.clientY}px`;
+  document.body.appendChild(ghost);
+
+  state.chipDrag = {
+    ownerId,
+    pointerId: e.pointerId,
+    ghostEl: ghost,
+    sourceEl,
+    startTargetId: getChipTargetId(ownerId)
+  };
+
+  sourceEl.classList.add('dragging');
+  sourceEl.setPointerCapture(e.pointerId);
+  window.addEventListener('pointermove', onChipDragMove);
+  window.addEventListener('pointerup', onChipDragEnd);
+  window.addEventListener('pointercancel', onChipDragEnd);
+}
+
+function getCircleForChipAtPoint(x, y){
+  const el = document.elementFromPoint(x, y);
+  const circle = el?.closest?.('.circleforchip');
+  if (circle && playerCircle.contains(circle)) return circle;
+  return null;
+}
+
+function clearChipCircleHighlights(){
+  document.querySelectorAll('.circleforchip.over').forEach(el => el.classList.remove('over'));
+}
+
+function onChipDragMove(e){
+  const dragState = state.chipDrag;
+  if (!dragState || dragState.pointerId !== e.pointerId) return;
+  if (dragState.ghostEl){
+    dragState.ghostEl.style.left = `${e.clientX}px`;
+    dragState.ghostEl.style.top = `${e.clientY}px`;
+  }
+
+  clearChipCircleHighlights();
+  const circle = getCircleForChipAtPoint(e.clientX, e.clientY);
+  if (circle) circle.classList.add('over');
+}
+
+async function onChipDragEnd(e){
+  const dragState = state.chipDrag;
+  if (!dragState || dragState.pointerId !== e.pointerId) return;
+
+  clearChipCircleHighlights();
+  const circle = getCircleForChipAtPoint(e.clientX, e.clientY);
+  const targetId = circle?.dataset?.pid || null;
+
+  if (dragState.ghostEl?.parentElement){
+    dragState.ghostEl.parentElement.removeChild(dragState.ghostEl);
+  }
+  dragState.sourceEl?.classList?.remove('dragging');
+
+  window.removeEventListener('pointermove', onChipDragMove);
+  window.removeEventListener('pointerup', onChipDragEnd);
+  window.removeEventListener('pointercancel', onChipDragEnd);
+  state.chipDrag = null;
+
+  if (!targetId){
+    await setChipTarget(dragState.ownerId, null);
+  } else if (targetId !== dragState.startTargetId){
+    await setChipTarget(dragState.ownerId, targetId);
+  }
 }
 
 /* =========================
@@ -1218,6 +1433,14 @@ function subscribeOrders(){
   });
 }
 
+function subscribeChips(){
+  const chipsRef = ref(db, `rooms/${state.roomCode}/chips`);
+  onValue(chipsRef, snap => {
+    state.chips = snap.val() || {};
+    renderHands();
+  });
+}
+
 function computeAllPicked(){
   if (!state.draft || state.draft.phase !== 'draft') return false;
   if (state.draft.status !== 'picking') return false;
@@ -1372,7 +1595,10 @@ function showOrderBig(){
 function hideOrderBig(){
   orderBigWrap.classList.add('hidden');
   setOrderOpen(false);
-  cleanupFloatingRole();
+  if (roleCardSingleton){
+    roleCardSingleton.classList.remove('role-float');
+  }
+  cleanupRoleCardArtifacts();
 }
 function toggleOrderBig(){
   if (!state.order.completed) return;
@@ -1643,7 +1869,7 @@ function buildOrderSmallCardFromTexts(texts, { clickable, revealIndex = null, en
 }
 
 function renderMyHand(){
-  cleanupFloatingRole();
+  cleanupRoleCardArtifacts();
 
   myHandEl.innerHTML = '';
   const myId = state.userId;
@@ -1685,13 +1911,12 @@ function renderMyHand(){
      - 順カード拡大中：画面中央の順カードの「左で重ねる」（role-float）
      - 通常時：順カード小/未配置を問わず一定間隔の横並び
      ========================= */
-  const roleCard = document.createElement('div');
-  roleCard.className = 'role-card-big';
+  const roleCard = getRoleCardElement();
   roleCard.textContent = h.role ? h.role : '（役職なし）';
+  attachRoleExpand(roleCard);
 
   const isOrderBigVisible = !orderBigWrap.classList.contains('hidden');
   const allowOrderSmall = !isOrderBigVisible;
-  const roleText = h.role ? h.role : '（役職なし）';
 
   // 「小さい順カード」が表示される条件
   const isOrderSmallVisible =
@@ -1699,7 +1924,11 @@ function renderMyHand(){
 
   if (isOrderBigVisible){
     roleCard.classList.add('role-float');
-    document.body.appendChild(roleCard);
+    if (roleCard.parentElement !== document.body){
+      document.body.appendChild(roleCard);
+    }
+  } else {
+    roleCard.classList.remove('role-float');
   }
 
  let orderSmallBlock = null;
@@ -1757,26 +1986,30 @@ function renderMyHand(){
     }
   }
 
-  if (!isOrderBigVisible){
-    const orderStack = document.createElement('div');
-    orderStack.className = 'hand-block order-stack order-stack-row';
+  const orderStack = document.createElement('div');
+  orderStack.className = 'hand-block order-stack order-stack-row';
 
-    const roleClone = document.createElement('div');
-    roleClone.className = 'role-card-big';
-    roleClone.textContent = roleText;
-
-    orderStack.appendChild(roleClone);
-
-    if (orderSmallCard){
-      orderStack.appendChild(orderSmallCard);
-    } else if (!phaseDraft) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'order-card-placeholder';
-      orderStack.appendChild(placeholder);
-    }
-
-    handArea.appendChild(orderStack);
+  const roleSlot = document.createElement('div');
+  roleSlot.className = 'order-stack-slot role-slot';
+  if (isOrderBigVisible){
+    roleSlot.appendChild(createRoleCardSpacer());
+  } else {
+    roleSlot.appendChild(roleCard);
   }
+
+  const orderSlot = document.createElement('div');
+  orderSlot.className = 'order-stack-slot order-slot-holder';
+  if (!isRevealPhase && orderSmallCard){
+    orderSlot.appendChild(orderSmallCard);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'order-card-placeholder';
+    orderSlot.appendChild(placeholder);
+  }
+
+  orderStack.appendChild(roleSlot);
+  orderStack.appendChild(orderSlot);
+  handArea.appendChild(orderStack);
 
   const decidedBlock = document.createElement('div');
   decidedBlock.className = 'hand-block decided front';
@@ -1905,7 +2138,7 @@ function renderHands(){
    - 他プレイヤーの未公開カードは青塗り
    - ホストは「次に公開できる段」だけクリック可能（どれを押しても全員同段が公開）
    ========================= */
-function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName }){
+function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIndex, roleName, chipOwnerName, chipTargetId, chipsOnRole }){
   if (!Array.isArray(ordered) || ordered.length !== 5) return null;
 
   const wrap = document.createElement('div');
@@ -1918,12 +2151,31 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
     roleEl.classList.add('front');
     roleEl.textContent = roleName || '（役職なし）';
   }
+  const roleChipStack = document.createElement('div');
+  roleChipStack.className = 'role-chip-stack';
+  (chipsOnRole || []).forEach(chipInfo => {
+    const chip = createPlayerChip({
+      ownerId: chipInfo.ownerId,
+      ownerName: chipInfo.ownerName,
+      draggable: canDragChip(chipInfo.ownerId)
+    });
+    roleChipStack.appendChild(chip);
+  });
+  roleEl.appendChild(roleChipStack);
   wrap.appendChild(roleEl);
 
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-  const dist = 70;
-  wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+  if (isMe){
+    wrap.style.top = '100%';
+    wrap.style.left = '50%';
+    wrap.style.transform = 'translate(-50%,8px)';
+  } else {
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const dist = 70;
+    wrap.style.top = '50%';
+    wrap.style.left = '50%';
+    wrap.style.transform = `translate(-50%,-50%) translate(${dx*dist}px, ${dy*dist}px)`;
+  }
 
   const card = document.createElement('div');
   card.className = 'mini-order-card';
@@ -1975,7 +2227,24 @@ function createMiniOrderOutsideTag({ ordered, pid, angle, isMe, isHost, revealIn
       renderMyHand();
     });
   }
-  wrap.appendChild(card);
+
+  const circle = document.createElement('div');
+  circle.className = 'circleforchip';
+  circle.dataset.pid = pid;
+  circle.appendChild(card);
+
+  const chipTray = document.createElement('div');
+  chipTray.className = 'chip-tray';
+  if (!chipTargetId){
+    const chip = createPlayerChip({
+      ownerId: pid,
+      ownerName: chipOwnerName,
+      draggable: canDragChip(pid)
+    });
+    chipTray.appendChild(chip);
+  }
+  circle.appendChild(chipTray);
+  wrap.appendChild(circle);
   return wrap;
 }
 
@@ -2010,6 +2279,18 @@ function renderPlayerCircle(players){
   const phase = getRoomPhase();
   const inReveal = (phase === 'reveal');
   const revealIndex = getRevealIndex();
+
+  const chipAssignments = players.map(p => ({
+    ownerId: p.id,
+    ownerName: p.name,
+    targetId: getChipTargetId(p.id)
+  }));
+  const chipsByTarget = new Map();
+  chipAssignments.forEach(chip => {
+    if (!chip.targetId) return;
+    if (!chipsByTarget.has(chip.targetId)) chipsByTarget.set(chip.targetId, []);
+    chipsByTarget.get(chip.targetId).push(chip);
+  });
 
   players.forEach((p, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
@@ -2074,27 +2355,33 @@ function renderPlayerCircle(players){
       }
     }
 
-// ★reveal に入ったら、他人のみネームタグの外側にミニ順カードを表示
+// ★reveal に入ったら、全員のネームタグ外側にミニ順カードを表示
 if (inReveal){
   const isMe = (p.id === state.userId);
-  if (!isMe){
-    const ordered = state.orders?.[p.id]?.ordered;
+  const ordered = state.orders?.[p.id]?.ordered;
+  const roleName = isMe ? (state.hands?.[p.id]?.role || null) : null;
+  const chipInfo = chipAssignments.find(chip => chip.ownerId === p.id);
 
-    const mini = createMiniOrderOutsideTag({
-      ordered,
-      pid: p.id,
-      angle,
-      isMe,
-      isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
-      revealIndex,
-      roleName: null
-    });
+  const mini = createMiniOrderOutsideTag({
+    ordered,
+    pid: p.id,
+    angle,
+    isMe,
+    isHost: state.isHost,     // 現在のユーザーがホストなら「公開ボタン」が付く
+    revealIndex,
+    roleName,
+    chipOwnerName: chipInfo?.ownerName || p.name,
+    chipTargetId: chipInfo?.targetId || null,
+    chipsOnRole: chipsByTarget.get(p.id) || []
+  });
 
-    if (mini){
-      // ミニ順カードのクリックが親のonclickに波及しないように
-      mini.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture:true });
-      tag.appendChild(mini);
-    }
+  if (mini){
+    // ミニ順カードのクリックが親のonclickに波及しないように（チップ操作は許可）
+    mini.addEventListener('pointerdown', (e) => {
+      if (e.target?.closest?.('.player-chip')) return;
+      e.stopPropagation();
+    }, { capture:true });
+    tag.appendChild(mini);
   }
 }
 
@@ -2142,6 +2429,7 @@ btnJoin.addEventListener('click', async () => {
   subscribeHands();
   subscribeDraft();
   subscribeOrders(); // ★追加
+  subscribeChips();
 
   syncSeatUI();
 });
@@ -2390,7 +2678,8 @@ async function dealInitialHandsAndStartDraft(){
       phase: "draft",
       revealIndex: 0
     }),
-    remove(ref(db, `rooms/${state.roomCode}/orders`))
+    remove(ref(db, `rooms/${state.roomCode}/orders`)),
+    remove(ref(db, `rooms/${state.roomCode}/chips`))
   ]);
 
   // ローカルも初期化
@@ -2522,6 +2811,7 @@ btnResetRoom.addEventListener('click', async () => {
     remove(ref(db, `${base}/hands`)),
     remove(ref(db, `${base}/draft`)),
     remove(ref(db, `${base}/orders`)),
+    remove(ref(db, `${base}/chips`)),
     remove(ref(db, `${base}/phase`)),
     remove(ref(db, `${base}/revealIndex`))
   ]);
