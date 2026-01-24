@@ -444,11 +444,24 @@
     box-sizing:border-box;
     z-index:2;
   }
+  .role-card-spacer{
+    width:var(--role-card-w);
+    height:var(--role-card-h);
+    border-radius:10px;
+    visibility:hidden;
+    pointer-events:none;
+  }
 
   .order-stack-row{
     display:flex;
     align-items:center;
     gap:0;
+  }
+  .order-stack-slot{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
   }
   .order-stack-row .order-card-small,
   .order-stack-row .order-card-placeholder{
@@ -1026,6 +1039,12 @@ function cleanupOrderSmallArtifacts(){
   document.querySelectorAll('.order-card-small, .order-slot-col.small').forEach(el=>{
     el.remove?.();
   });
+}
+
+function createRoleCardSpacer(){
+  const spacer = document.createElement('div');
+  spacer.className = 'role-card-spacer';
+  return spacer;
 }
 
 function renderHelpList(){
@@ -1967,24 +1986,30 @@ function renderMyHand(){
     }
   }
 
-  if (!isOrderBigVisible){
-    const orderStack = document.createElement('div');
-    orderStack.className = 'hand-block order-stack order-stack-row';
+  const orderStack = document.createElement('div');
+  orderStack.className = 'hand-block order-stack order-stack-row';
 
-    orderStack.appendChild(roleCard);
-
-    if (!isRevealPhase){
-      if (orderSmallCard){
-        orderStack.appendChild(orderSmallCard);
-      } else if (!phaseDraft) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'order-card-placeholder';
-        orderStack.appendChild(placeholder);
-      }
-    }
-
-    handArea.appendChild(orderStack);
+  const roleSlot = document.createElement('div');
+  roleSlot.className = 'order-stack-slot role-slot';
+  if (isOrderBigVisible){
+    roleSlot.appendChild(createRoleCardSpacer());
+  } else {
+    roleSlot.appendChild(roleCard);
   }
+
+  const orderSlot = document.createElement('div');
+  orderSlot.className = 'order-stack-slot order-slot-holder';
+  if (!isRevealPhase && orderSmallCard){
+    orderSlot.appendChild(orderSmallCard);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'order-card-placeholder';
+    orderSlot.appendChild(placeholder);
+  }
+
+  orderStack.appendChild(roleSlot);
+  orderStack.appendChild(orderSlot);
+  handArea.appendChild(orderStack);
 
   const decidedBlock = document.createElement('div');
   decidedBlock.className = 'hand-block decided front';
